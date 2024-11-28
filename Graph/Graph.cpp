@@ -4,6 +4,14 @@ Graph::Graph(/* args */){
 }
 
 Graph::~Graph(){
+
+    delete[] h_in_deg;
+    delete[] h_in_adj;
+    delete[] h_in_offset;
+    delete[] h_out_deg;
+    delete[] h_out_adj;
+    delete[] h_out_offset;
+
 }
 
 void Graph::GetVtxMapping(string file_path, string map_file, std::basic_ofstream<char> &map_file_out){

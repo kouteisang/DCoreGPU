@@ -4,7 +4,21 @@
 #include <cuda_runtime.h>
 #include "Graph/Graph.h"
 
-void copyData2GPU(Graph& g, int* in_adj, int* in_deg, int* in_offset, int* out_adj, int* out_deg, int* out_offset){
+/**
+ * Error check
+ */
+inline void chkerr(cudaError_t code){
+    if (code != cudaSuccess){
+        std::cout << cudaGetErrorString(code) << std::endl;
+        exit(-1);
+    }
+}
+
+
+/**
+ * Init the data
+ */
+void malloc_graph_gpu_memory(Graph& g, G_pointers &p){
     
     int num_vtx = g.get_num_vtx();
     long long num_edge = g.get_num_edge();
@@ -17,26 +31,39 @@ void copyData2GPU(Graph& g, int* in_adj, int* in_deg, int* in_offset, int* out_a
     int* h_out_deg = g.get_h_out_deg();
     int* h_out_offset = g.get_h_out_offset();
 
-    cudaMalloc(&in_adj, num_edge * sizeof(int));
-    cudaMemcpy(in_adj, h_in_adj, num_edge * sizeof(int), cudaMemcpyHostToDevice);
+    chkerr(cudaMalloc(&(p.in_adj), num_edge * sizeof(int)));
+    chkerr(cudaMemcpy(p.in_adj, h_in_adj, num_edge * sizeof(int), cudaMemcpyHostToDevice));
 
-    cudaMalloc(&out_adj, num_edge * sizeof(int));
-    cudaMemcpy(out_adj, h_out_adj, num_edge * sizeof(int), cudaMemcpyHostToDevice);
+    chkerr(cudaMalloc(&(p.out_adj), num_edge * sizeof(int)));
+    chkerr(cudaMemcpy(p.out_adj, h_out_adj, num_edge * sizeof(int), cudaMemcpyHostToDevice));
 
-    cudaMalloc(&in_deg, num_vtx * sizeof(int));
-    cudaMemcpy(in_deg, h_in_deg, num_vtx * sizeof(int), cudaMemcpyHostToDevice);
+    chkerr(cudaMalloc(&(p.in_deg), num_vtx * sizeof(int)));
+    chkerr(cudaMemcpy(p.in_deg, h_in_deg, num_vtx * sizeof(int), cudaMemcpyHostToDevice));
 
-    cudaMalloc(&out_deg, num_vtx * sizeof(int));
-    cudaMemcpy(out_deg, h_out_deg, num_vtx * sizeof(int), cudaMemcpyHostToDevice);
+    chkerr(cudaMalloc(&(p.out_deg), num_vtx * sizeof(int)));
+    chkerr(cudaMemcpy(p.out_deg, h_out_deg, num_vtx * sizeof(int), cudaMemcpyHostToDevice));
 
 
-    cudaMalloc(&in_offset, (num_vtx + 1) * sizeof(int));
-    cudaMemcpy(in_offset, h_in_offset, (num_vtx + 1) * sizeof(int), cudaMemcpyHostToDevice);
+    chkerr(cudaMalloc(&(p.in_offset), (num_vtx + 1) * sizeof(int)));
+    chkerr(cudaMemcpy(p.in_offset, h_in_offset, (num_vtx + 1) * sizeof(int), cudaMemcpyHostToDevice));
  
-    cudaMalloc(&out_offset, (num_vtx + 1) * sizeof(int));     
-    cudaMemcpy(out_offset, h_out_offset, (num_vtx + 1) * sizeof(int), cudaMemcpyHostToDevice);
- 
+    chkerr(cudaMalloc(&(p.out_offset), (num_vtx + 1) * sizeof(int)));     
+    chkerr(cudaMemcpy(p.out_offset, h_out_offset, (num_vtx + 1) * sizeof(int), cudaMemcpyHostToDevice));
 
+    p.num_vtx = g.get_num_vtx();
+}
+
+
+/**
+ * Copy in_deg -> t_in_deg
+ * Copy out_deg -> t_out_deg
+ * Memset flag
+ */
+void gpu_data_init(G_pointers &p){
+    cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice);
+
+    cudaMemset(p.flag, false, p.num_vtx * sizeof(bool));
 }
 
 #endif

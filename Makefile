@@ -1,14 +1,14 @@
 # Compiler and flags
 NVCC = nvcc
 CXX = g++
-CXXFLAGS = -std=c++11 -O2
+CXXFLAGS = -std=c++11 -O3
 INCLUDES = -I./Graph
 
 # Target executable
 TARGET = main
 
 # Source files
-CUDA_SRCS = main.cu
+CUDA_SRCS = main.cu src/klist.cu
 CPP_SRCS = Graph/Graph.cpp
 
 # Rules
