@@ -15,12 +15,9 @@ private:
 
     int *h_out_deg{nullptr}; // vertice out degree
     int *h_out_adj{nullptr}; // vertice out adj
-    int *h_out_offset{nullptr}; // vertice out offset;
-
-   
+    int *h_out_offset{nullptr}; // vertice out offset; 
 
     unordered_map<int, int> vtx2id;
-
 
 public:
     Graph(/* args */);
@@ -59,6 +56,10 @@ public:
     
     int* get_h_out_offset(){
         return h_out_offset;
+    }
+
+    unordered_map<int, int> get_vtx2id(){
+        return vtx2id;
     }
 
 };

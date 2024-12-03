@@ -27,8 +27,8 @@ typedef long long ll;
 #define BLK_NUMS 56
 #define BLK_DIM 1024
 // #define BLK_DIM 256
-// #define BUFFER_SIZE 1000000
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 1000000
+// #define BUFFER_SIZE 100
 #define WARP_SIZE 32
 
 typedef struct G_pointers {

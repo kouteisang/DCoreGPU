@@ -5,7 +5,11 @@
 
 int main(int argc, char* argv[]){
 
-    string dataset = "example";
+    cudaEvent_t start, stop; // Calculate time
+    cudaEventCreate(&start); // Calculate time
+    cudaEventCreate(&stop);  // Calculate time
+
+    string dataset = "em";
     string file_path = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/";
 
     Graph g = Graph(file_path, dataset);
@@ -18,8 +22,18 @@ int main(int argc, char* argv[]){
 
     gpu_data_init(data_pointers);
 
+    cudaEventRecord(start, 0);
+    
     klist_de(data_pointers);
     
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    float gpu_time = 0;
+    cudaEventElapsedTime(&gpu_time, start, stop);
+    std::cout << "GPU time = " << gpu_time/1000 << " s" << std::endl;
+
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
     
     return 0;
 }

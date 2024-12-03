@@ -25,7 +25,7 @@ void Graph::GetVtxMapping(string file_path, string map_file, std::basic_ofstream
 
     fscanf(Dfile, "%d%lld", &nn, &num_edge);
 
-    for(long i = 0; i < num_edge; i ++){
+    for(ll i = 0; i < num_edge; i ++){
         int u, v;
         fscanf(Dfile, "%d%d", &u, &v);
 
@@ -79,7 +79,7 @@ Graph::Graph(string file, string dataset){
 
     // cout << "nn = " << nn << " num_edge = " << num_edge << endl;
 
-    for(long i = 0; i < num_edge; i ++){
+    for(ll i = 0; i < num_edge; i ++){
         int u, v;
         fscanf(Dfile, "%d%d", &u, &v);
 
