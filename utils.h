@@ -1,19 +1,9 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <cuda_runtime.h>
+
+#include "header.h"
 #include "Graph/Graph.h"
-
-/**
- * Error check
- */
-inline void chkerr(cudaError_t code){
-    if (code != cudaSuccess){
-        std::cout << cudaGetErrorString(code) << std::endl;
-        exit(-1);
-    }
-}
-
 
 /**
  * Init the data
@@ -49,6 +39,12 @@ void malloc_graph_gpu_memory(Graph& g, G_pointers &p){
  
     chkerr(cudaMalloc(&(p.out_offset), (num_vtx + 1) * sizeof(int)));     
     chkerr(cudaMemcpy(p.out_offset, h_out_offset, (num_vtx + 1) * sizeof(int), cudaMemcpyHostToDevice));
+
+    chkerr(cudaMalloc(&(p.t_in_deg), num_vtx * sizeof(int)));
+    chkerr(cudaMemcpy(p.t_in_deg, h_in_deg, num_vtx * sizeof(int), cudaMemcpyHostToDevice));
+
+    chkerr(cudaMalloc((&p.t_out_deg), num_vtx * sizeof(int)));
+    chkerr(cudaMemcpy(p.t_out_deg, h_out_deg, num_vtx * sizeof(int), cudaMemcpyHostToDevice));
 
     p.num_vtx = g.get_num_vtx();
 }
