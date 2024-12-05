@@ -37,11 +37,12 @@ __global__ void update_level(int* global_buffer, int* buf_count, int* global_cou
     int warp_per_block = blockDim.x / WARP_SIZE;
     int warp_id = threadIdx.x / WARP_SIZE;
     int lane_id = threadIdx.x % WARP_SIZE;
+    int start_prime, end_prime;
     if(threadIdx.x == 0){
         t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
         start = 0;
         end = buf_count[blockIdx.x]; // The end position of the buffer
-        printf("id = %d, end = %d\n", blockIdx.x, end);
+        // printf("id = %d, end = %d\n", blockIdx.x, end);
     } 
 
     __syncthreads();
@@ -50,14 +51,13 @@ __global__ void update_level(int* global_buffer, int* buf_count, int* global_cou
         __syncthreads();
         // printf("end = %d\n", end);
         if(start >= end) break; // All the thread break the iteration
-        int start_prime = start + warp_id; // Get the vertex id position
-        int end_prime = end; // Get the last position of the vertex id
+        start_prime = start + warp_id; // Get the vertex id position
+        end_prime = end; // Get the last position of the vertex id
         __syncthreads();
         if(start_prime >= end_prime) continue; // The vertex position is larger than the number of valid vertices in the buffer
         if(threadIdx.x == 0){
             start = min(start + warp_per_block, end); // update the start position
         }
-        __syncthreads();
         int v = t_global_buffer[start_prime]; // Get the vertex id
         int offset_start = out_offset[v]; // offset of v 
         int offset_end = out_offset[v+1]; // offset of v
@@ -106,18 +106,17 @@ void klist_de(G_pointers &p){
     chkerr(cudaMalloc(&global_buffer, sizeof(int) * BLK_NUMS * BUFFER_SIZE));
     
 
-    // while(count < p.num_vtx){
+    while(count < p.num_vtx){
         cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
         scan_level<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.num_vtx, global_buffer, buf_count, level);
         update_level<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.t_out_deg, p.out_offset, p.out_adj, level); 
         chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
         level ++;
-    // }
-
+    }
+    level -= 1;
+    cout << "num of vertex = " << p.num_vtx << endl;
+    cout << "count = " << count << endl;
     cout << "level = " << level << endl;
-
-
-
     // int* in_degree_res = new int[p.num_vtx];
     // chkerr(cudaMemcpy(in_degree_res, p.t_in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
 
