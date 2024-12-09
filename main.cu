@@ -2,7 +2,6 @@
 #include "./src/klist.cuh"
 
 
-
 int main(int argc, char* argv[]){
 
     cudaEvent_t start, stop; // Calculate time
@@ -26,6 +25,7 @@ int main(int argc, char* argv[]){
     
     klist_de(data_pointers);
     
+
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     float gpu_time = 0;

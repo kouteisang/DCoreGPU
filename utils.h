@@ -59,7 +59,7 @@ void gpu_data_init(G_pointers &p){
     cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice);
     cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice);
 
-    cudaMemset(p.flag, false, p.num_vtx * sizeof(bool));
+    cudaMemset(p.visit, false, p.num_vtx * sizeof(bool));
 }
 
 #endif

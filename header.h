@@ -43,7 +43,7 @@ typedef struct G_pointers {
     int* t_in_deg; // We use it for each iteration
     int* t_out_deg; // Weuse it for each iteration
 
-    bool* flag;
+    bool* visit;
 
     int num_vtx;
 } G_pointers;//graph related

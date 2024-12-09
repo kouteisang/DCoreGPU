@@ -91,6 +91,130 @@ __global__ void update_level(int* global_buffer, int* buf_count, int* global_cou
 }
 
 
+
+__global__ void calculate_scan(int* t_in_deg, int *t_out_deg, bool* visit, int num_vtx, int* global_buffer, int* buf_count, int k, int l){
+
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    __shared__ int sh_buf_count;
+    __shared__ int* t_global_buffer;
+
+    if(threadIdx.x == 0){
+        sh_buf_count = 0;
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+    }
+    __syncthreads();
+
+    for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
+        if(visit[v] == false && t_in_deg[v] < k){
+            visit[v] = true;
+            int pos = atomicAdd(&sh_buf_count, 1);
+            t_global_buffer[pos] = v;
+            t_out_deg[v] = l;
+        }
+        if(visit[v] == false && t_out_deg[v] == l){
+            visit[v] = true;
+            int pos = atomicAdd(&sh_buf_count, 1);
+            t_global_buffer[pos] = v; 
+        }
+    }
+
+    __syncthreads();
+
+    if(threadIdx.x == 0){
+        buf_count[blockIdx.x] = sh_buf_count;
+    }
+
+}
+
+
+__global__ void calculate_update(int* global_buffer, int* buf_count, int* global_count, 
+                                int* t_in_deg, int* in_adj, int* in_offset, 
+                                int* t_out_deg, int* out_adj, int* out_offset, 
+                                bool* visit, int k, int l){
+        
+    __shared__ int start, end;
+    __shared__ int* t_global_buffer;
+
+    int warp_per_block = blockDim.x / WARP_SIZE;
+    int warp_id = threadIdx.x / WARP_SIZE;
+    int lane_id = threadIdx.x % WARP_SIZE;
+    int start_prime, end_prime;
+    if(threadIdx.x == 0){
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+        start = 0;
+        end = buf_count[blockIdx.x]; // The end position of the buffer
+    } 
+
+    __syncthreads();
+
+    while (true){
+        __syncthreads();
+        if(start >= end) break;
+        start_prime = start + warp_id; // Get the vertex id position
+        end_prime = end; // Get the last position of the vertex id
+        __syncthreads();
+        if(start_prime >= end_prime) continue; // The vertex position is larger than the number of valid vertices in the buffer
+        if(threadIdx.x == 0){
+            start = min(start + warp_per_block, end); // update the start position
+        }
+        int v = t_global_buffer[start_prime]; // Get the vertex id
+
+        int o_offset_start = out_offset[v]; // offset of v
+        int o_offset_end = out_offset[v+1]; // offset of v
+
+        int i_offset_start = in_offset[v];
+        int i_offset_end = in_offset[v+1];
+
+        while(true){
+            __syncwarp();
+            if(o_offset_start >= o_offset_end) break;
+            int uid = o_offset_start + lane_id;
+            o_offset_start = o_offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
+            if(uid >= o_offset_end) continue;
+            int u = out_adj[uid];
+            if(visit[u]) continue; // the vertice should not be visited
+            int in_deg_u = atomicSub(&t_in_deg[u], 1);
+            if(in_deg_u <= k){
+                int end_pos = atomicAdd(&end, 1);
+                t_global_buffer[end_pos] = u; // 
+                visit[u] = true;             //
+                t_out_deg[u] = l;
+            }
+        }
+
+
+        while (true){
+            __syncwarp();
+            if(i_offset_start >= i_offset_end) break;
+            int uid = o_offset_start + lane_id;
+            i_offset_start = i_offset_start + WARP_SIZE;
+            if(uid >= i_offset_end) continue;
+            int u = in_adj[uid];
+            if(visit[u]) continue;
+            int out_deg_u = atomicSub(&t_out_deg[u], 1);
+            if(out_deg_u == l+1){
+                int end_pos = atomicAdd(&end, 1); 
+                t_global_buffer[end_pos] = u;
+                visit[u] = true;
+                t_out_deg[u] = l;
+            }
+            if(out_deg_u <= l){
+                atomicAdd(&t_out_deg[u], 1);
+                visit[u] = true;
+            }
+        }
+
+    }
+    
+    if(threadIdx.x == 0 && end > 0){
+        atomicAdd(global_count, end);
+    }
+
+
+    
+
+}
+
 void klist_de(G_pointers &p){
 
     int level = 0;
@@ -113,10 +237,33 @@ void klist_de(G_pointers &p){
         chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
         level ++;
     }
-    level -= 1;
-    cout << "num of vertex = " << p.num_vtx << endl;
-    cout << "count = " << count << endl;
-    cout << "level = " << level << endl;
+    int k_max = level - 1;
+
+    int l = 0;
+    count = 0;
+    for(int k = 0; k < 1; k ++){
+        chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+        chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+        cudaMemset(p.visit, false, p.num_vtx * sizeof(bool)); // flag = false means has not visited
+        cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
+        cudaMemset(global_count, 0, sizeof(int));
+        count = 0;
+
+        // while(count < p.num_vtx){
+            calculate_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l); // scan to find the invalid vertex
+            calculate_update<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l);// peel the invalid vertex
+            chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
+        //     l ++;
+        // }
+        // cout << "l max = " << l << endl;
+ 
+    }
+
+    
+
+    // // cout << "num of vertes = " << p.num_vtx << endl;
+    // // cout << "count = " << count << endl;
+    // // cout << "level = " << level << endl;
     // int* in_degree_res = new int[p.num_vtx];
     // chkerr(cudaMemcpy(in_degree_res, p.t_in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
 
