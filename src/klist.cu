@@ -91,7 +91,6 @@ __global__ void update_level(int* global_buffer, int* buf_count, int* global_cou
 }
 
 
-
 __global__ void calculate_scan(int* t_in_deg, int *t_out_deg, bool* visit, int num_vtx, int* global_buffer, int* buf_count, int k, int l){
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -105,16 +104,15 @@ __global__ void calculate_scan(int* t_in_deg, int *t_out_deg, bool* visit, int n
     __syncthreads();
 
     for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
-        if(visit[v] == false && t_in_deg[v] < k){
+        if(visit[v] == false && t_out_deg[v] == l){
+            int pos = atomicAdd(&sh_buf_count, 1);
+            t_global_buffer[pos] = v;
             visit[v] = true;
+        }else if(visit[v] == false && t_in_deg[v] < k){
             int pos = atomicAdd(&sh_buf_count, 1);
             t_global_buffer[pos] = v;
             t_out_deg[v] = l;
-        }
-        if(visit[v] == false && t_out_deg[v] == l){
             visit[v] = true;
-            int pos = atomicAdd(&sh_buf_count, 1);
-            t_global_buffer[pos] = v; 
         }
     }
 
@@ -176,8 +174,8 @@ __global__ void calculate_update(int* global_buffer, int* buf_count, int* global
             int in_deg_u = atomicSub(&t_in_deg[u], 1);
             if(in_deg_u <= k){
                 int end_pos = atomicAdd(&end, 1);
-                t_global_buffer[end_pos] = u; // 
-                visit[u] = true;             //
+                t_global_buffer[end_pos] = u;  
+                visit[u] = true;             
                 t_out_deg[u] = l;
             }
         }
@@ -186,7 +184,7 @@ __global__ void calculate_update(int* global_buffer, int* buf_count, int* global
         while (true){
             __syncwarp();
             if(i_offset_start >= i_offset_end) break;
-            int uid = o_offset_start + lane_id;
+            int uid = i_offset_start + lane_id;
             i_offset_start = i_offset_start + WARP_SIZE;
             if(uid >= i_offset_end) continue;
             int u = in_adj[uid];
@@ -237,26 +235,32 @@ void klist_de(G_pointers &p){
         chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
         level ++;
     }
-    int k_max = level - 1;
+
+    // Store the res
+    int** res = new int*[level];
+    for(int l = 0; l < level; l ++){
+        res[l] = new int[p.num_vtx];
+    }
+
 
     int l = 0;
     count = 0;
-    for(int k = 0; k < 1; k ++){
+    for(int k = 0; k < level; k ++){
         chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
         chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
         cudaMemset(p.visit, false, p.num_vtx * sizeof(bool)); // flag = false means has not visited
         cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
         cudaMemset(global_count, 0, sizeof(int));
         count = 0;
+        l = 0;
 
-        // while(count < p.num_vtx){
+        while(count < p.num_vtx){
             calculate_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l); // scan to find the invalid vertex
             calculate_update<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l);// peel the invalid vertex
-            chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
-        //     l ++;
-        // }
-        // cout << "l max = " << l << endl;
- 
+            chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
+            l ++;
+        }
+        // chkerr(cudaMemcpy(res[k], p.t_out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
     }
 
     
@@ -268,21 +272,22 @@ void klist_de(G_pointers &p){
     // chkerr(cudaMemcpy(in_degree_res, p.t_in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
 
 
+    // Save to local
     // std::ifstream file("/home/cheng/DCoreGPU/dataset/em/vtx2id.txt");  // 打开文件
-
     // unordered_map<int, int> id2vtx;
     // int vtx, id;
-
     // // 逐行读取数据
     // while (file >> vtx >> id) {
     //     id2vtx[id] = vtx;
     // }
 
-    // std::ofstream wr("/home/cheng/DCoreGPU/dataset/em/k0-new.txt");
+    // for(int k = 0; k < level; k ++){
+    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/em/em-k"+std::to_string(k)+"-gpu.txt");
 
-    // for(int v = 0; v < p.num_vtx; v ++){
-    //     wr << id2vtx[v] << " " << in_degree_res[v] << std::endl;
+    //     for(int v = 0; v < p.num_vtx; v ++){
+    //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
+    //     }
+
     // }
-
-        // cudaDeviceSynchronize();
+    
 }
