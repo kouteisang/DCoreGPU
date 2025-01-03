@@ -77,7 +77,7 @@ Graph::Graph(string file, string dataset){
 
     fscanf(Dfile, "%d%lld", &nn, &num_edge);
 
-    // cout << "nn = " << nn << " num_edge = " << num_edge << endl;
+    cout << "nn = " << nn << " num_edge = " << num_edge << endl;
 
     for(ll i = 0; i < num_edge; i ++){
         int u, v;
@@ -139,6 +139,10 @@ Graph::Graph(string file, string dataset){
             auto u = vec_out_adj[v][i];
             h_out_adj[e ++] = u;
         }
+    }
+
+    for(uint v = 0; v < nn; v ++){
+        cout << "v =" << vtx2id[v] << " in = " << h_in_deg[v] << " out = " << h_out_deg[v] << endl;
     }
 
 }

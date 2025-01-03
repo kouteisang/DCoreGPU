@@ -4,11 +4,24 @@
 
 int main(int argc, char* argv[]){
 
+    string dataset = "em";
+
+    for(int i = 1; i < argc; i ++){
+        string arg = argv[i];
+        if (arg == "-d" && i + 1 < argc) {
+            dataset = argv[++i];
+        }
+    }
+
+    cout << "dataset = " << dataset << endl;
+
+    
+
     cudaEvent_t start, stop; // Calculate time
     cudaEventCreate(&start); // Calculate time
     cudaEventCreate(&stop);  // Calculate time
 
-    string dataset = "em";
+
     string file_path = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/";
 
     Graph g = Graph(file_path, dataset);
@@ -17,6 +30,7 @@ int main(int argc, char* argv[]){
     ll num_edge = g.get_num_edge();
 
     G_pointers data_pointers;
+    
     malloc_graph_gpu_memory(g, data_pointers);
 
     gpu_data_init(data_pointers);
@@ -24,7 +38,6 @@ int main(int argc, char* argv[]){
     cudaEventRecord(start, 0);
     
     klist_de(data_pointers);
-    
 
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);

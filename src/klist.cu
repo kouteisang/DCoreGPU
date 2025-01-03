@@ -173,10 +173,12 @@ __global__ void calculate_update(int* global_buffer, int* buf_count, int* global
             if(visit[u]) continue; // the vertice should not be visited
             int in_deg_u = atomicSub(&t_in_deg[u], 1);
             if(in_deg_u <= k){
-                int end_pos = atomicAdd(&end, 1);
-                t_global_buffer[end_pos] = u;  
-                visit[u] = true;             
-                t_out_deg[u] = l;
+                // if(visit[u] == false){
+                    int end_pos = atomicAdd(&end, 1);
+                    t_global_buffer[end_pos] = u;  
+                    visit[u] = true;             
+                    t_out_deg[u] = l;
+                // }
             }
         }
 
@@ -189,16 +191,18 @@ __global__ void calculate_update(int* global_buffer, int* buf_count, int* global
             if(uid >= i_offset_end) continue;
             int u = in_adj[uid];
             if(visit[u]) continue;
-            int out_deg_u = atomicSub(&t_out_deg[u], 1);
-            if(out_deg_u == l+1){
-                int end_pos = atomicAdd(&end, 1); 
-                t_global_buffer[end_pos] = u;
-                visit[u] = true;
-                t_out_deg[u] = l;
-            }
-            if(out_deg_u <= l){
-                atomicAdd(&t_out_deg[u], 1);
-                visit[u] = true;
+            if(t_out_deg[u] > l){
+                int out_deg_u = atomicSub(&t_out_deg[u], 1);
+                if(out_deg_u == l+1){
+                    int end_pos = atomicAdd(&end, 1); 
+                    t_global_buffer[end_pos] = u;
+                    visit[u] = true;
+                    t_out_deg[u] = l;
+                }
+                if(out_deg_u <= l){
+                    atomicAdd(&t_out_deg[u], 1);
+                    visit[u] = true;
+                }
             }
         }
 
@@ -236,6 +240,15 @@ void klist_de(G_pointers &p){
         level ++;
     }
 
+    // Here just for the test
+    // int *tt = new int[p.num_vtx];
+    // chkerr(cudaMemcpy(tt, p.t_in_deg, sizeof(int) * p.num_vtx, cudaMemcpyDeviceToHost)); 
+    // for(int i = 0; i < p.num_vtx; i ++){
+    //     cout << tt[i] << " ";
+    // }
+    // cout << endl;
+    // cout << "level = " << level << endl;
+
     // Store the res
     int** res = new int*[level];
     for(int l = 0; l < level; l ++){
@@ -260,7 +273,7 @@ void klist_de(G_pointers &p){
             chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
             l ++;
         }
-        // chkerr(cudaMemcpy(res[k], p.t_out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
+        chkerr(cudaMemcpy(res[k], p.t_out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
     }
 
     
@@ -273,21 +286,21 @@ void klist_de(G_pointers &p){
 
 
     // Save to local
-    // std::ifstream file("/home/cheng/DCoreGPU/dataset/em/vtx2id.txt");  // 打开文件
-    // unordered_map<int, int> id2vtx;
-    // int vtx, id;
-    // // 逐行读取数据
-    // while (file >> vtx >> id) {
-    //     id2vtx[id] = vtx;
-    // }
+    std::ifstream file("/home/cheng/DCoreGPU/dataset/testdata/vtx2id.txt");  // 打开文件
+    unordered_map<int, int> id2vtx;
+    int vtx, id;
+    // 逐行读取数据
+    while (file >> vtx >> id) {
+        id2vtx[id] = vtx;
+    }
 
-    // for(int k = 0; k < level; k ++){
-    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/em/em-k"+std::to_string(k)+"-gpu.txt");
+    for(int k = 0; k < level; k ++){
+        std::ofstream wr("/home/cheng/DCoreGPU/dataset/testdata/testdata-k"+std::to_string(k)+"-gpu.txt");
 
-    //     for(int v = 0; v < p.num_vtx; v ++){
-    //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
-    //     }
+        for(int v = 0; v < p.num_vtx; v ++){
+            wr << id2vtx[v] << " " << res[k][v] << std::endl;
+        }
 
-    // }
+    }
     
 }
