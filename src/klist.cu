@@ -173,12 +173,10 @@ __global__ void calculate_update(int* global_buffer, int* buf_count, int* global
             if(visit[u]) continue; // the vertice should not be visited
             int in_deg_u = atomicSub(&t_in_deg[u], 1);
             if(in_deg_u <= k){
-                // if(visit[u] == false){
-                    int end_pos = atomicAdd(&end, 1);
-                    t_global_buffer[end_pos] = u;  
-                    visit[u] = true;             
-                    t_out_deg[u] = l;
-                // }
+                int end_pos = atomicAdd(&end, 1);
+                t_global_buffer[end_pos] = u;  
+                visit[u] = true;             
+                t_out_deg[u] = l;
             }
         }
 
@@ -190,19 +188,17 @@ __global__ void calculate_update(int* global_buffer, int* buf_count, int* global
             i_offset_start = i_offset_start + WARP_SIZE;
             if(uid >= i_offset_end) continue;
             int u = in_adj[uid];
-            if(visit[u]) continue;
-            if(t_out_deg[u] > l){
-                int out_deg_u = atomicSub(&t_out_deg[u], 1);
-                if(out_deg_u == l+1){
-                    int end_pos = atomicAdd(&end, 1); 
-                    t_global_buffer[end_pos] = u;
-                    visit[u] = true;
-                    t_out_deg[u] = l;
-                }
-                if(out_deg_u <= l){
-                    atomicAdd(&t_out_deg[u], 1);
-                    visit[u] = true;
-                }
+            if(visit[u] || t_out_deg[u] <= l) continue;
+            int out_deg_u = atomicSub(&t_out_deg[u], 1);
+            if(out_deg_u == l+1){
+                int end_pos = atomicAdd(&end, 1); 
+                t_global_buffer[end_pos] = u;
+                visit[u] = true;
+                t_out_deg[u] = l;
+            }
+            if(out_deg_u <= l){
+                atomicAdd(&t_out_deg[u], 1);
+                visit[u] = true;
             }
         }
 
@@ -286,7 +282,7 @@ void klist_de(G_pointers &p){
 
 
     // Save to local
-    std::ifstream file("/home/cheng/DCoreGPU/dataset/testdata/vtx2id.txt");  // 打开文件
+    std::ifstream file("/home/cheng/DCoreGPU/dataset/test3/vtx2id.txt");  // 打开文件
     unordered_map<int, int> id2vtx;
     int vtx, id;
     // 逐行读取数据
@@ -295,7 +291,7 @@ void klist_de(G_pointers &p){
     }
 
     for(int k = 0; k < level; k ++){
-        std::ofstream wr("/home/cheng/DCoreGPU/dataset/testdata/testdata-k"+std::to_string(k)+"-gpu.txt");
+        std::ofstream wr("/home/cheng/DCoreGPU/dataset/testdata/test3-k"+std::to_string(k)+"-gpu.txt");
 
         for(int v = 0; v < p.num_vtx; v ++){
             wr << id2vtx[v] << " " << res[k][v] << std::endl;
