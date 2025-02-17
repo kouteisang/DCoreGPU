@@ -59,6 +59,9 @@ Graph::Graph(string file, string dataset){
     string file_path = file + dataset + ".txt";
     string map_file = file + "vtx2id.txt";
 
+    cout << "file_path = " << file_path << endl;
+    cout << "map_file = " << map_file << endl;
+
     std::basic_ofstream<char> map_file_out;
 
     GetVtxMapping(file_path, map_file, map_file_out);
@@ -141,8 +144,8 @@ Graph::Graph(string file, string dataset){
         }
     }
 
-    for(uint v = 0; v < nn; v ++){
-        cout << "v =" << vtx2id[v] << " in = " << h_in_deg[v] << " out = " << h_out_deg[v] << endl;
-    }
+    // for(uint v = 0; v < nn; v ++){
+    //     cout << "v =" << vtx2id[v] << " in = " << h_in_deg[v] << " out = " << h_out_deg[v] << endl;
+    // }
 
 }

@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <execution>
 #include <cuda_runtime.h>
-
+#include <assert.h>
 
 
 using std::min;
@@ -26,9 +26,7 @@ typedef long long ll;
 
 #define BLK_NUMS 56
 #define BLK_DIM 1024
-// #define BLK_DIM 256
 #define BUFFER_SIZE 1000000
-// #define BUFFER_SIZE 100
 #define WARP_SIZE 32
 
 typedef struct G_pointers {
@@ -43,9 +41,11 @@ typedef struct G_pointers {
     int* t_in_deg; // We use it for each iteration
     int* t_out_deg; // Weuse it for each iteration
 
-    bool* visit;
+    int* visit;
 
     int num_vtx;
+
+    int* core;
 } G_pointers;//graph related
 
 /**

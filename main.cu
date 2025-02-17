@@ -4,6 +4,8 @@
 
 int main(int argc, char* argv[]){
 
+    cudaSetDevice(1);
+
     string dataset = "em";
 
     for(int i = 1; i < argc; i ++){
@@ -43,7 +45,7 @@ int main(int argc, char* argv[]){
     cudaEventSynchronize(stop);
     float gpu_time = 0;
     cudaEventElapsedTime(&gpu_time, start, stop);
-    std::cout << "GPU time = " << gpu_time/1000 << " s" << std::endl;
+    std::cout << "GPU time = " << gpu_time << " ms" << std::endl;
 
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
