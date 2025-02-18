@@ -185,7 +185,8 @@ __global__ void calculate_update(int* global_buffer, int* buf_count, int* global
             i_offset_start = i_offset_start + WARP_SIZE; 
             if(o_uid < o_offset_end){
                 int o_u = out_adj[o_uid];
-                if(atomicOr(&visit[o_u], 0) == 0){ // unvisit  
+                // if(atomicOr(&visit[o_u], 0) == 0){ // unvisit
+                if(visit[o_u] == 0){
                     int in_deg_u = atomicSub(&t_in_deg[o_u], 1);
                     if(in_deg_u == k && atomicCAS(&visit[o_u], 0, 1) == 0){
                         int end_pos = atomicAdd(&end, 1);
@@ -197,7 +198,8 @@ __global__ void calculate_update(int* global_buffer, int* buf_count, int* global
             __syncwarp();
             if(i_uid < i_offset_end){
                 int i_u = in_adj[i_uid];
-                if(atomicOr(&visit[i_u], 0) == 0 && t_out_deg[i_u] > l){ // unvisit  
+                // if(atomicOr(&visit[i_u], 0) == 0 && t_out_deg[i_u] > l){ // unvisit 
+                if(visit[i_u] == 0 && t_out_deg[i_u] > l){ // unvisit  
                     int out_deg_u = atomicSub(&t_out_deg[i_u], 1);
                     if(out_deg_u == (l+1) && atomicCAS(&visit[i_u], 0, 1) == 0){
                         int end_pos = atomicAdd(&end, 1); 
@@ -330,7 +332,7 @@ void klist_de(G_pointers &p){
         l = 0;
 
         while(count < p.num_vtx){
-            cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
+            // cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
             calculate_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l, p.core); // scan to find the invalid vertex
             calculate_update<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
             update_out_deg<<<BLK_NUMS, BLK_DIM>>>(p.t_out_deg, p.core, p.num_vtx, p.visit, l);
@@ -360,12 +362,11 @@ void klist_de(G_pointers &p){
     // }
 
     // for(int k = 0; k < level; k ++){
-    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/livejournal/livejournal-k-"+std::to_string(k)+"-gpu.txt");
+    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/livejournal/livejournal2-k-"+std::to_string(k)+"-gpu.txt");
 
     //     for(int v = 0; v < p.num_vtx; v ++){
     //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
     //     }
-
     // }
     
 }
