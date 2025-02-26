@@ -46,10 +46,13 @@ void malloc_graph_gpu_memory(Graph& g, G_pointers &p){
     chkerr(cudaMemcpy(p.t_out_deg, h_out_deg, num_vtx * sizeof(int), cudaMemcpyHostToDevice));
 
     chkerr(cudaMalloc((&p.visit), num_vtx * sizeof(int)));
-    cudaMemset(p.visit, 0, p.num_vtx * sizeof(int));
+    cudaMemset(p.visit, 0, num_vtx * sizeof(int));
 
     chkerr(cudaMalloc((&p.core), num_vtx * sizeof(int)));
-    cudaMemset(p.core, -1, p.num_vtx * sizeof(int));
+    cudaMemset(p.core, -1, num_vtx * sizeof(int));
+
+    chkerr(cudaMalloc((&p.in_count_num), num_vtx*sizeof(int))); // init the incount num
+    cudaMemset(p.in_count_num, -1, num_vtx * sizeof(int));
 
     p.num_vtx = g.get_num_vtx();
 }

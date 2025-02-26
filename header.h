@@ -10,6 +10,7 @@
 #include <execution>
 #include <cuda_runtime.h>
 #include <assert.h>
+#include <climits>
 
 
 using std::min;
@@ -46,6 +47,8 @@ typedef struct G_pointers {
     int num_vtx;
 
     int* core;
+
+    int* in_count_num;
 } G_pointers;//graph related
 
 /**

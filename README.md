@@ -13,4 +13,14 @@ e.g. dataset/em/em.txt
 make
 
 ## run
-./main -d dataset (e.g. ./main -d em)
+./main -d dataset -a 1(e.g. ./main -d em -a 1)
+
+## algorithm
+
+1. klist
+
+2. klist with prune
+
+## profile
+
+nsys profile --stats=true 

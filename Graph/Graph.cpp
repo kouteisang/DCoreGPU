@@ -80,7 +80,7 @@ Graph::Graph(string file, string dataset){
 
     fscanf(Dfile, "%d%lld", &nn, &num_edge);
 
-    cout << "nn = " << nn << " num_edge = " << num_edge << endl;
+    // cout << "nn = " << nn << " num_edge = " << num_edge << endl;
 
     for(ll i = 0; i < num_edge; i ++){
         int u, v;

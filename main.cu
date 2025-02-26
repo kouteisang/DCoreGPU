@@ -1,25 +1,32 @@
 #include "utils.h"
 #include "./src/klist.cuh"
+#include "./src/klistprune.cuh"
 
+
+enum Algorithm{
+    klist = 1,
+    klistprune = 2
+};
 
 int main(int argc, char* argv[]){
 
     cudaSetDevice(1);
 
     string dataset = "em";
+    int alg = 1; // klist, klist-prune
 
     for(int i = 1; i < argc; i ++){
         string arg = argv[i];
         if (arg == "-d" && i + 1 < argc) {
             dataset = argv[++i];
+        }else if(arg == "-a" && i+1 < argc){
+            alg = std::stoi(argv[++i]);
         }
     }
 
     cout << "dataset = " << dataset << endl;
 
-    
-
-    cudaEvent_t start, stop; // Calculate time
+     cudaEvent_t start, stop; // Calculate time
     cudaEventCreate(&start); // Calculate time
     cudaEventCreate(&stop);  // Calculate time
 
@@ -38,8 +45,17 @@ int main(int argc, char* argv[]){
     gpu_data_init(data_pointers);
 
     cudaEventRecord(start, 0);
-    
-    klist_de(data_pointers);
+
+    switch (alg){
+        case Algorithm::klist:
+            cout << "Algorithm = klist" << endl;
+            klist_de(data_pointers);
+            break;
+        case Algorithm::klistprune:
+            cout << "Algorithm = klistprune" << endl;
+            klistprune_de(data_pointers);
+            break;
+    }
 
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
