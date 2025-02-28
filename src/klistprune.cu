@@ -385,7 +385,7 @@ void klistprune_de(G_pointers &p){
     int max_val = INT_MAX;
     int* d_min;
     chkerr(cudaMalloc(&d_min, sizeof(int)));  
-    int h_min;
+    // int h_min;
 
     int* buf_count;
     chkerr(cudaMalloc(&buf_count, sizeof(int) * BLK_NUMS));
