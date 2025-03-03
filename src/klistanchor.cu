@@ -416,14 +416,12 @@ __global__ void histagram_calculation(int* global_buffer, int* buf_count, int* h
 
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
-    __shared__ int done;
 
     int warp_per_block = blockDim.x / WARP_SIZE;
     int warp_id = threadIdx.x / WARP_SIZE;
     int lane_id = threadIdx.x % WARP_SIZE;
     int start_prime, end_prime;
     if(threadIdx.x == 0){
-        done = 0; // 这个代表这个block并没有完成
         t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
         start = 0;
         end = buf_count[blockIdx.x]; // The end position of the buffer
@@ -451,45 +449,39 @@ __global__ void histagram_calculation(int* global_buffer, int* buf_count, int* h
 
         while(true){
             __syncwarp();
-            if(o_offset_start >= o_offset_end) break;
+            if(o_offset_start >= o_offset_end && i_offset_start >= i_offset_end) break;
             int o_uid = o_offset_start + lane_id;
+            int i_uid = i_offset_start + lane_id;
             o_offset_start = o_offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
+            i_offset_start = i_offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start 
             if(o_uid < o_offset_end){
                 int o_u = out_adj[o_uid];
                 if(core0[o_u] >= k){
                     atomicAdd(&hist_out[v*lmax+upper[o_u]], 1);
                 }
-            }   
-        } 
-
-        __syncwarp();
-
-        while(true){
+            }
             __syncwarp();
-            if(i_offset_start >= i_offset_end) break;
-            int i_uid = i_offset_start + lane_id;
-            i_offset_start = i_offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
             if(i_uid < i_offset_end){
                 int i_u = in_adj[i_uid];
                 if(core0[i_u] >= k){
                     atomicAdd(&hist_in[v*lmax+upper[i_u]], 1);
                 }
-            }   
-        } 
+            } 
+        }
 
-        // __syncwarp();
-        
     }
-
 }
 
 
-__global__ void update_visit_by_core0(int* core0, int* visit, int num_vtx, int k){
+__global__ void update_visit_by_core0(int* core0, int* visit, int num_vtx, int k, int* core){
      
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     for(int v = tid; v < num_vtx; v += BLK_NUMS * BLK_DIM){
         visit[v] = (core0[v] >= k);
+        if(core0[v] < k){
+            core[v] = 0;
+        }
     }
 }
 
@@ -510,10 +502,14 @@ __global__ void suffixsum_calculate(int* global_buffer, int* buf_count, int* his
         assert(t_global_buffer!=NULL);
     } 
 
-    while (start < end){
+    __syncthreads();
 
+    while (true){
+        __syncthreads();
+        if(start >= end) break;
         if(tid == 0){
             data = hist_out + N * t_global_buffer[start];
+            // printf("t_global_buffer[start] = %d\n", t_global_buffer[start]);
         }
         __syncthreads();
         for (unsigned int i = tid; i < P; i += blockDim.x) {
@@ -565,7 +561,7 @@ __global__ void suffixsum_calculate(int* global_buffer, int* buf_count, int* his
     }            
 }
 
-__global__ void hindex_out_calculate(int* global_buffer, int* buf_count, int* hist_out, int* hindex_out, int* upper){
+__global__ void hindex_out_calculate(int* global_buffer, int* buf_count, int* hist_out, int* hindex_out, int* upper, int lmax){
 
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -603,15 +599,15 @@ __global__ void hindex_out_calculate(int* global_buffer, int* buf_count, int* hi
             if(offset_start > offset_end) break;
             int uid = offset_start + lane_id;
             offset_start = offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
-            if(hist_out[v] >= v){
-                atomicMax(&hindex_out[v], v);
+            if(uid <= offset_end && hist_out[v*lmax+uid] >= uid){
+                atomicMax(&hindex_out[v], uid);
             }
         }
     }
 }
 
 
-__global__ void hindex_in_calculate(int* global_buffer, int* buf_count, int* hist_in, int* hindex_in, int* upper, int k){
+__global__ void hindex_in_calculate(int* global_buffer, int* buf_count, int* hist_in, int* hindex_in, int* upper, int k, int lmax){
 
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -649,8 +645,8 @@ __global__ void hindex_in_calculate(int* global_buffer, int* buf_count, int* his
             if(offset_start > offset_end) break;
             int uid = offset_start + lane_id;
             offset_start = offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
-            if(hist_in[v] >= k){
-                atomicMax(&hindex_in[v], v);
+            if(uid <= offset_end && hist_in[v*lmax+uid] >= k){
+                atomicMax(&hindex_in[v], uid);
             }
         }
     }
@@ -706,7 +702,8 @@ __global__ void update_change_status(int* global_buffer, int* buf_count, int* hi
             o_offset_start = o_offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
             if(o_uid < o_offset_end){
                 int o_u = out_adj[o_uid];
-                if(core0[o_u] >= k && upper[v] >= upper[o_u] && upper[o_u] > minhindex){
+                if(core0[o_u] >= k){
+                // if(core0[o_u] >= k && upper[v] >= upper[o_u] && upper[o_u] > minhindex){
                     change[o_u] = 1;
                 }
             }
@@ -723,7 +720,8 @@ __global__ void update_change_status(int* global_buffer, int* buf_count, int* hi
             i_offset_start = i_offset_start + WARP_SIZE; 
             if(i_uid < i_offset_end){
                 int i_u = in_adj[i_uid];
-                if(core0[i_u] >= k && upper[v] >= upper[i_u] && upper[i_u] > minhindex){
+                if(core0[i_u] >= k){
+                // if(core0[i_u] >= k && upper[v] >= upper[i_u] && upper[i_u] > minhindex){
                     change[i_u] = 1;
                 }
             }
@@ -816,136 +814,103 @@ void klistanchor_de(G_pointers &p){
 
     int sh = 1;  while (sh < lmax) sh <<= 1;               // next power of two
 
+    // int *h_hist_out = new int[p.num_vtx * lmax];
+    // int *h_hist_in = new int[p.num_vtx * lmax];
+
     int* hist_out;
     chkerr(cudaMalloc(&hist_out, sizeof(int) * lmax * p.num_vtx));
+    // cudaMemset(hist_out, 0, sizeof(int) * lmax * p.num_vtx); // 每一个点的out-degree histogram  checked
+
     int* hist_in;
     chkerr(cudaMalloc(&hist_in, sizeof(int) * lmax * p.num_vtx));
+    // cudaMemset(hist_in, 0, sizeof(int) * lmax * p.num_vtx); // 每一个点的in-degree histogram  checked
+
 
 // The following for the kstatus
-    bool* kstatus;
-    chkerr(cudaMalloc(&kstatus, kmax * sizeof(bool)));
-    bool* h_kstatus = new bool[kmax];
-    kanchorstatus_update<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, kstatus, p.num_vtx);
-    chkerr(cudaMemcpy(h_kstatus, kstatus, sizeof(bool)*kmax, cudaMemcpyDeviceToHost));     
-
-    // int process = 0;
-    vector<int> h_kstatus_v;
-    for(int i = 0; i < kmax; i ++){
-        if(h_kstatus[i]){
-            h_kstatus_v.push_back(i);
-        }
-    }
-
-    cout << h_kstatus_v.size() << endl;
+    // bool* kstatus;
+    // chkerr(cudaMalloc(&kstatus, kmax * sizeof(bool)));
+    // bool* h_kstatus = new bool[kmax];
+    // kanchorstatus_update<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, kstatus, p.num_vtx);
+    // chkerr(cudaMemcpy(h_kstatus, kstatus, sizeof(bool)*kmax, cudaMemcpyDeviceToHost));     
 
 
+   
 
-    // int pos = 0;
-    // int l = 0;
-    // count = 0;
-    // while(pos < h_kstatus_v.size()){
-    //     int h_min = INT_MAX; 
-    //     int k = h_kstatus_v[pos];
-    //     cudaMemset(p.in_count_num, -1, p.num_vtx * sizeof(int));
-    //     cudaMemset(p.core, 0, p.num_vtx * sizeof(int));
-    //     chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
-    //     chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
-    //     cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
-    //     cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
-    //     cudaMemset(global_count, 0, sizeof(int));
-    //     count = 0;
-    //     l = 0;
-
-    //     if(pos == 0){
-    //         while(count < p.num_vtx){
-    //             klistanchor_calculate_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l, p.core); // scan to find the invalid vertex
-    //             klistanchor_calculate_update<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
-    //             chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
-    //             l ++;
-    //         }
-    //     }else if(pos > 0){
-    //         int done = 1;
-    //         cudaMemset(global_done, 0, sizeof(int));
-    //         klistanchor_scan_by_core0<<<BLK_NUMS, BLK_DIM>>>(core0, upper, p.num_vtx, global_buffer, buf_count, p.core, p.visit, k);
-    //         while(done){
-    //             matintain_hist<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hist_out, hist_in, p.out_adj, p.out_offset, p.in_adj, p.in_offset, core0, upper, k, p.num_vtx);
-    //             // klistanchor_lmax<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.core, core0, upper, p.visit, k);
-    //             // parallelOr<<<(p.num_vtx+1024-1)/1024, 1024>>>(p.visit, global_done, p.num_vtx);
-    //             chkerr(cudaMemcpy(&done, global_done, sizeof(int), cudaMemcpyDeviceToHost));    
-    //             cudaMemset(hist_in, 0, sizeof(int)*p.num_vtx*lmax);
-    //             cudaMemset(hist_out, 0, sizeof(int)*p.num_vtx*lmax);
-    //         }
-    //     }
-    //     // memcpy here 
-    //     chkerr(cudaMemcpy(&upper, p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
-    //     if(pos + 1 < h_kstatus_v.size() && h_kstatus_v[pos+1] != k+1){
-    //         cudaMemcpy(d_min, &max_val, sizeof(int), cudaMemcpyHostToDevice);
-    //         anchor_check_innb_count<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, p.core, core0, p.num_vtx, p.in_offset, p.in_adj, k);
-    //         anchor_reduceMinkernel<<< (p.num_vtx+256-1)/256, 256>>>(p.in_count_num, d_min, p.num_vtx);
-    //         cudaMemcpy(&h_min, d_min, sizeof(int), cudaMemcpyDeviceToHost);
-
-    //         if(h_min != INT_MAX && pos+1 < h_kstatus_v.size() && h_min+1 < h_kstatus_v[pos+1]){
-    //             h_kstatus_v.insert(h_kstatus_v.begin() + pos + 1, h_min+1);
-    //         }
-    //     }
-    //     pos ++;
-    // }
-
-
-
-
-
+   
     int pos = 0;
     int l = 0;
     count = 0;
-    for(pos = 0; pos <= 1; pos ++){
+    cudaMemset(p.core, 0, p.num_vtx * sizeof(int));
+    chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+    chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+
+    int** res = new int*[kmax];
+    for(int l = 0; l < kmax; l ++){
+        res[l] = new int[p.num_vtx];
+    }
+
+    for(int k = 0; k < kmax; k ++){
         int h_min = INT_MAX; 
-        int k = h_kstatus_v[pos];
-        // cudaMemset(p.in_count_num, -1, p.num_vtx * sizeof(int));
-        cudaMemset(p.core, 0, p.num_vtx * sizeof(int));
-        chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
-        chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
         cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
         cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
         cudaMemset(global_count, 0, sizeof(int));
-        count = 0;
-        l = 0;
 
-        if(pos == 0){
+
+        if(k == 0){
+            count = 0;
+            l = 0;
             while(count < p.num_vtx){
                 klistanchor_calculate_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l, p.core); // scan to find the invalid vertex
                 klistanchor_calculate_update<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
                 chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
                 l ++;
             }
-            cout << "I am pos = 0" << endl;
-        }else if(pos > 0){
-            int done = 1; 
-            update_visit_by_core0<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k); // 这个在while循环外面
-            while(true){
+        }else if(k > 0){
+            int done = 1;
+            update_visit_by_core0<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k, p.core); // 这个在while循环外面
+            while(done){
                 cudaMemset(hindex_in, 0, sizeof(int) * p.num_vtx); // 每一个点in的hindex checked
                 cudaMemset(hindex_out, 0, sizeof(int) * p.num_vtx); // 每一个点out的hindex  checked
-                cudaMemset(hist_in, 0, sizeof(int)*p.num_vtx*lmax); // 每一个点的in-degree histogram  checked
-                cudaMemset(hist_out, 0, sizeof(int)*p.num_vtx*lmax); // 每一个点的out-degree histogram  checked
+                cudaMemset(hist_in, 0, sizeof(int) * lmax * p.num_vtx); // 每一个点的in-degree histogram  checked
+                cudaMemset(hist_out, 0, sizeof(int) * lmax * p.num_vtx); // 每一个点的out-degree histogram  checked
                 cudaMemset(global_done, 0, sizeof(int));  // 是否完成  checked
                 cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS); // buf count  checked
                 cudaMemset(change, 0, sizeof(int) * p.num_vtx); // 是否改变  checked
-
                 vertex_to_buffer<<<BLK_NUMS, BLK_DIM>>>(p.num_vtx, global_buffer, buf_count, p.visit); // 将需要改变的放在buffer里面并设置visit = 1 checked
                 histagram_calculation<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hist_out, hist_in, p.out_adj, p.out_offset, p.in_adj, p.in_offset, core0, p.core, k, p.num_vtx, lmax); // 计算直方图
                 size_t shmemSize = sh * sizeof(int);
                 suffixsum_calculate<<<BLK_NUMS, BLK_DIM, shmemSize>>>(global_buffer, buf_count, hist_out, lmax, sh); // hist_out 的后缀和
-                hindex_out_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hist_out, hindex_out, p.core); // hindex_out for each vertex
+                hindex_out_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hist_out, hindex_out, p.core, lmax); // hindex_out for each vertex
                 suffixsum_calculate<<<BLK_NUMS, BLK_DIM, shmemSize>>>(global_buffer, buf_count, hist_in, lmax, sh); // hist_in 的后缀和
-                hindex_in_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hist_in, hindex_in, p.core, k);
+                hindex_in_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hist_in, hindex_in, p.core, k, lmax);
                 update_change_status<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, p.out_adj, p.out_offset, change, core0, k);
                 update_upper_by_visit<<<BLK_NUMS, BLK_DIM>>>(hindex_in, hindex_out, p.core, p.visit, p.num_vtx);// update p.core by p.visit
                 cudaMemcpy(p.visit, change, sizeof(int)*p.num_vtx, cudaMemcpyDeviceToDevice);
                 parallelOr<<<(p.num_vtx+1024-1)/1024, 1024>>>(p.visit, global_done, p.num_vtx);
                 cudaMemcpy(&done, global_done, sizeof(int), cudaMemcpyDeviceToHost);
-                printf("???\n");
             }
         }
+        chkerr(cudaMemcpy(res[k], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
     }
+
+
+    std::ifstream file("/home/cheng/DCoreGPU/dataset/em/vtx2id.txt");  // 打开文件
+    unordered_map<int, int> id2vtx;
+    int vtx, id;
+    // 逐行读取数据
+    while (file >> vtx >> id) {
+        id2vtx[id] = vtx;
+    }
+
+
+    for(int k = 0; k < kmax; k ++){
+        std::ofstream wr("/home/cheng/DCoreGPU/dataset/em/em-"+std::to_string(k)+"-gpu-a4.txt");
+
+        for(int v = 0; v < p.num_vtx; v ++){
+            wr << id2vtx[v] << " " << res[k][v] << std::endl;
+        }
+    }
+
+
 
 }

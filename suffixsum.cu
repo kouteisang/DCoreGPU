@@ -57,11 +57,12 @@ __global__ void suffixSumKernel(int *data, int N, int P) {
 
 
 int main(){
-    int N = 1000;
+    int N = 4;
     int *h_data = new int[N];
     for(int i = 0; i < N; i ++){
-        h_data[i] = rand() % 100;
+        h_data[i] = 0;
     }
+    h_data[3] = 3;
 
     int* d_data;
     cudaMalloc(&d_data, N * sizeof(int));
@@ -81,14 +82,18 @@ int main(){
         h_data[i] += h_data[i+1];
     }
 
+    // for(int i = 0; i < N; i ++){
+    //     cout << "i = " << h_data[i] << endl;
+    // }
+
     for(int i = 0; i < N; i ++){
         if(h_data[i] != cuda_res[i]){
             printf("i = %d", i);
             printf("error!");
             break;
         }
-        // else{
-        //     printf("h_data = %d, cuda_res = %d\n", h_data[i], cuda_res[i]);
-        // }
+        else{
+            printf("h_data = %d, cuda_res = %d\n", h_data[i], cuda_res[i]);
+        }
     }
 }

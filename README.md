@@ -24,3 +24,7 @@ make
 ## profile
 
 nsys profile --stats=true 
+
+
+
+nvcc -std=c++11 -o suffix suffixsum.cu 
