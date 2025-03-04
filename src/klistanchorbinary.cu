@@ -1,0 +1,711 @@
+#include "klistanchorbinary.cuh"
+
+
+
+__global__ void kmax_scan(int* t_in_deg, int num_vtx, int* global_buffer, int* buf_count, int level){
+
+    // printf("%d\n", p.num_vtx);
+    __shared__ int* t_global_buffer;
+    __shared__ int sh_buf_count;
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    
+    if(threadIdx.x == 0){
+        sh_buf_count = 0;
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+    }
+    __syncthreads();
+
+    for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
+        if(t_in_deg[v] == level){
+            int pos = atomicAdd(&sh_buf_count, 1);
+            t_global_buffer[pos] = v;
+        }
+    }
+    __syncthreads();
+
+    if(threadIdx.x == 0){
+        buf_count[blockIdx.x] = sh_buf_count;
+    
+    }
+}
+
+
+__global__ void kmax_update(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* t_out_deg, int* out_offset, int *out_adj, int level){
+    
+    __shared__ int start, end;
+    __shared__ int* t_global_buffer;
+
+    int warp_per_block = blockDim.x / WARP_SIZE;
+    int warp_id = threadIdx.x / WARP_SIZE;
+    int lane_id = threadIdx.x % WARP_SIZE;
+    int start_prime, end_prime;
+    if(threadIdx.x == 0){
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+        start = 0;
+        end = buf_count[blockIdx.x]; // The end position of the buffer
+        // printf("id = %d, end = %d\n", blockIdx.x, end);
+    } 
+
+    __syncthreads();
+
+    while(true){
+        __syncthreads();
+        // printf("end = %d\n", end);
+        if(start >= end) break; // All the thread break the iteration
+        start_prime = start + warp_id; // Get the vertex id position
+        end_prime = end; // Get the last position of the vertex id
+        __syncthreads();
+        if(start_prime >= end_prime) continue; // The vertex position is larger than the number of valid vertices in the buffer
+        if(threadIdx.x == 0){
+            start = min(start + warp_per_block, end); // update the start position
+        }
+        int v = t_global_buffer[start_prime]; // Get the vertex id
+        int offset_start = out_offset[v]; // offset of v 
+        int offset_end = out_offset[v+1]; // offset of v
+        
+        while (true){
+            __syncwarp();
+            if(offset_start >= offset_end) break;
+            int uid = offset_start + lane_id;
+            offset_start = offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
+            if(uid >= offset_end) continue; // This vertex does not has so many neighbouthood
+            int u = out_adj[uid]; // v's out-neighbouthood u
+            if(t_in_deg[u] > level){
+                int in_deg_u = atomicSub(&t_in_deg[u], 1);
+                if(in_deg_u == (level+1)){
+                    int end_pos = atomicAdd(&end, 1);
+                    t_global_buffer[end_pos] = u;
+                }
+                if(in_deg_u <= level) { // Add it back
+                    atomicAdd(&t_in_deg[u], 1);
+                }
+            }
+        }   
+    }
+
+    if(threadIdx.x == 0 && end > 0){
+        atomicAdd(global_count, end);
+    }
+
+
+}
+
+
+__global__ void lmax_scan(int* t_out_deg, int num_vtx, int* global_buffer, int* buf_count, int l){
+
+    __shared__ int* t_global_buffer;
+    __shared__ int sh_buf_count;
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    
+    if(threadIdx.x == 0){
+        sh_buf_count = 0;
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+    }
+    __syncthreads();
+
+    for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
+        if(t_out_deg[v] == l){
+            int pos = atomicAdd(&sh_buf_count, 1);
+            t_global_buffer[pos] = v;
+        }
+    }
+    __syncthreads();
+
+    if(threadIdx.x == 0){
+        buf_count[blockIdx.x] = sh_buf_count;
+    
+    }
+}
+
+
+__global__ void lmax_update(int* global_buffer, int* buf_count, int* global_count, int* t_out_deg, int* t_in_deg, int* in_offset, int* in_adj, int l){
+      __shared__ int start, end;
+    __shared__ int* t_global_buffer;
+
+    int warp_per_block = blockDim.x / WARP_SIZE;
+    int warp_id = threadIdx.x / WARP_SIZE;
+    int lane_id = threadIdx.x % WARP_SIZE;
+    int start_prime, end_prime;
+    if(threadIdx.x == 0){
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+        start = 0;
+        end = buf_count[blockIdx.x]; // The end position of the buffer
+        // printf("id = %d, end = %d\n", blockIdx.x, end);
+    } 
+
+    __syncthreads();
+
+    while(true){
+        __syncthreads();
+        // printf("end = %d\n", end);
+        if(start >= end) break; // All the thread break the iteration
+        start_prime = start + warp_id; // Get the vertex id position
+        end_prime = end; // Get the last position of the vertex id
+        __syncthreads();
+        if(start_prime >= end_prime) continue; // The vertex position is larger than the number of valid vertices in the buffer
+        if(threadIdx.x == 0){
+            start = min(start + warp_per_block, end); // update the start position
+        }
+        int v = t_global_buffer[start_prime]; // Get the vertex id
+        int offset_start = in_offset[v]; // offset of v 
+        int offset_end = in_offset[v+1]; // offset of v
+        
+        while (true){
+            __syncwarp();
+            if(offset_start >= offset_end) break;
+            int uid = offset_start + lane_id;
+            offset_start = offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
+            if(uid >= offset_end) continue; // This vertex does not has so many neighbouthood
+            int u = in_adj[uid]; // v's out-neighbouthood u
+            if(t_out_deg[u] > l){
+                int out_deg_u = atomicSub(&t_out_deg[u], 1);
+                if(out_deg_u == (l+1)){
+                    int end_pos = atomicAdd(&end, 1);
+                    t_global_buffer[end_pos] = u;
+                }
+                if(out_deg_u <= l) { // Add it back
+                    atomicAdd(&t_out_deg[u], 1);
+                }
+            }
+        }   
+    }
+
+    if(threadIdx.x == 0 && end > 0){
+        atomicAdd(global_count, end);
+    }
+
+}
+
+
+__global__ void scan_phase(int* t_in_deg, int *t_out_deg, int* visit, int num_vtx, int* global_buffer, int* buf_count, int k, int l, int* core){
+
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    __shared__ int sh_buf_count;
+    __shared__ int* t_global_buffer;
+
+    if(threadIdx.x == 0){
+        sh_buf_count = 0;
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+    }
+    __syncthreads();
+
+   for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
+        if(visit[v] == 0 && t_out_deg[v] == l){
+            int pos = atomicAdd(&sh_buf_count, 1);
+            t_global_buffer[pos] = v;
+            visit[v] = 1;
+            core[v] = l;
+        }else if(visit[v] == 0 && t_in_deg[v] < k){
+            int pos = atomicAdd(&sh_buf_count, 1);
+            t_global_buffer[pos] = v;
+            t_out_deg[v] = l;
+            visit[v] = 1;
+            core[v] = l;
+        }
+    }
+
+    __syncthreads();
+
+    if(threadIdx.x == 0){
+        buf_count[blockIdx.x] = sh_buf_count;
+    }
+
+}
+
+__global__ void update_phase(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* in_adj, int* in_offset, int* t_out_deg, int* out_adj, int* out_offset, int* visit, int k, int l, int* core){
+        
+    __shared__ int start, end;
+    __shared__ int* t_global_buffer;
+
+    int warp_per_block = blockDim.x / WARP_SIZE;
+    int warp_id = threadIdx.x / WARP_SIZE;
+    int lane_id = threadIdx.x % WARP_SIZE;
+    int start_prime, end_prime;
+    if(threadIdx.x == 0){
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+        start = 0;
+        end = buf_count[blockIdx.x]; // The end position of the buffer
+        assert(t_global_buffer!=NULL);
+    } 
+
+    __syncthreads();
+
+    while (true){
+        __syncthreads();
+        if(start >= end) break;
+        start_prime = start + warp_id; // Get the vertex id position
+        end_prime = end; // Get the last position of the vertex id
+        __syncthreads();
+        if(start_prime >= end_prime) continue; // The vertex position is larger than the number of valid vertices in the buffer
+        if(threadIdx.x == 0){
+            start = min(start + warp_per_block, end); // update the start position
+        }
+        int v = t_global_buffer[start_prime]; // Get the vertex id
+
+        int o_offset_start = out_offset[v]; // offset of v
+        int o_offset_end = out_offset[v+1]; // offset of v
+        // int o2_offset_start = o_offset_start; // offset of v
+        // int o2_offset_end = o_offset_end; // offset of v
+         
+
+        int i_offset_start = in_offset[v];
+        int i_offset_end = in_offset[v+1];
+
+    
+        while(true){
+            __syncwarp();
+            if(o_offset_start >= o_offset_end && i_offset_start >= i_offset_end) break;
+            int o_uid = o_offset_start + lane_id;
+            int i_uid = i_offset_start + lane_id; 
+            o_offset_start = o_offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
+            i_offset_start = i_offset_start + WARP_SIZE; 
+            if(o_uid < o_offset_end){
+                int o_u = out_adj[o_uid];
+                int in_deg_u = atomicSub(&t_in_deg[o_u], 1);
+                if(in_deg_u == k && atomicCAS(&visit[o_u], 0, 1) == 0){
+                    int end_pos = atomicAdd(&end, 1);
+                    t_global_buffer[end_pos] = o_u;
+                    core[o_u] = l;
+                }
+            }
+            __syncwarp();
+            if(i_uid < i_offset_end){
+                int i_u = in_adj[i_uid];
+                int out_deg_u = atomicSub(&t_out_deg[i_u], 1);
+                if(out_deg_u == (l+1) && atomicCAS(&visit[i_u], 0, 1) == 0){
+                    int end_pos = atomicAdd(&end, 1); 
+                    t_global_buffer[end_pos] = i_u;
+                    core[i_u] = l;
+                }
+            }
+        }
+    }
+    
+    if(threadIdx.x == 0 && end > 0){
+        atomicAdd(global_count, end);
+    }
+
+}
+
+
+__global__ void b_update_visit_by_core0(int* core0, int* visit, int num_vtx, int k, int* core){
+     
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    for(int v = tid; v < num_vtx; v += BLK_NUMS * BLK_DIM){
+        visit[v] = (core0[v] >= k);
+        if(core0[v] < k){
+            core[v] = 0;
+        }
+    }
+}
+
+__global__ void b_vertex_to_buffer(int num_vtx, int* global_buffer, int* buf_count, int* visit){
+
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    __shared__ int sh_buf_count;
+    __shared__ int* t_global_buffer;
+
+    if(threadIdx.x == 0){
+        sh_buf_count = 0;
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+    }
+    __syncthreads();
+
+   for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
+        if(visit[v] == 1){
+            int pos = atomicAdd(&sh_buf_count, 1);
+            t_global_buffer[pos] = v;
+        }
+    }
+
+    __syncthreads();
+
+    if(threadIdx.x == 0){
+        buf_count[blockIdx.x] = sh_buf_count;
+    }
+}
+
+__global__ void b_hindex_out_calculate(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
+    __shared__ int start, end;
+    __shared__ int* t_global_buffer;
+
+    __shared__ int low;
+    __shared__ int high;
+    __shared__ int v;
+    __shared__ int offset_start;
+    __shared__ int offset_end;
+    __shared__ int count;
+    __shared__ int best_mid;
+
+  
+    if(threadIdx.x == 0){
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+        start = 0;
+        end = buf_count[blockIdx.x]; // The end position of the buffer
+        // printf("id = %d, end = %d\n", blockIdx.x, end);
+    } 
+
+    __syncthreads(); 
+
+    while (true){
+        __syncthreads();
+        if(start >= end) break;
+        if(threadIdx.x == 0){
+            v = t_global_buffer[start];
+            low = 0;
+            high = upper[v];
+            offset_start = out_offset[v];
+            offset_end = out_offset[v+1];
+            best_mid = 0;
+        }
+        __syncthreads();
+        
+        while (low <= high){
+            __syncthreads();
+            if(threadIdx.x == 0){count = 0;}
+            // if(threadIdx.x < 256) bigger[threadIdx.x] = 0;
+            __syncthreads();
+            int mid = low + (high - low) / 2;
+
+            for(int uid = offset_start+threadIdx.x; uid < offset_end; uid += BLK_DIM){
+                int u = out_adj[uid];
+                if(core0[u] >= k && upper[u] >= mid){
+                    atomicAdd(&count, 1);
+                }
+            }
+
+            __syncthreads();
+
+            if(threadIdx.x == 0){
+                if(count >= mid){
+                    low = mid+1;
+                    best_mid = mid;
+                }else{
+                    high = mid - 1;
+                }
+            }
+        }
+
+        __syncthreads();
+        if(threadIdx.x == 0){
+            hindex_out[v] = best_mid; // 最终结果
+            start ++;
+        }
+    }
+}
+
+
+__global__ void b_hindex_in_calculate(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k){
+    __shared__ int start, end;
+    __shared__ int* t_global_buffer;
+
+    __shared__ int low;
+    __shared__ int high;
+    __shared__ int v;
+    __shared__ int offset_start;
+    __shared__ int offset_end;
+    __shared__ int count;
+    __shared__ int best_mid;
+
+  
+    if(threadIdx.x == 0){
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+        start = 0;
+        end = buf_count[blockIdx.x]; // The end position of the buffer
+        // printf("id = %d, end = %d\n", blockIdx.x, end);
+    } 
+
+    __syncthreads(); 
+
+    while (true){
+        __syncthreads();
+        if(start >= end) break;
+        if(threadIdx.x == 0){
+            v = t_global_buffer[start];
+            low = 0;
+            high = upper[v];
+            offset_start = in_offset[v];
+            offset_end = in_offset[v+1];
+            best_mid = 0;
+        }
+        __syncthreads();
+        
+        while (low <= high){
+            __syncthreads();
+            if(threadIdx.x == 0){
+                count = 0;
+            }
+            __syncthreads();
+            int mid = low + (high - low) / 2;
+
+            for(int uid = offset_start+threadIdx.x; uid < offset_end; uid += BLK_DIM){
+                int u = in_adj[uid];
+                if(core0[u] >= k && upper[u] >= mid){
+                    // atomicAdd(&bigger[threadIdx.x%256], 1);
+                    atomicAdd(&count, 1);
+                }
+            }
+
+            __syncthreads();
+
+            if(threadIdx.x == 0){
+                if(count >= k){
+                    low = mid+1;
+                    best_mid = mid;
+                }else{
+                    high = mid - 1;
+                }
+            }
+        }
+
+        __syncthreads();
+        if(threadIdx.x == 0){
+            hindex_in[v] = best_mid; // 最终结果
+            start ++;
+        }
+    }
+}
+
+
+
+__global__ void b_update_change_status(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* upper, int* in_adj, int* in_offset, int* out_adj, int* out_offset, int* change, int* core0, int k, int* global_done){
+
+     __shared__ int start, end;
+    __shared__ int* t_global_buffer;
+
+    int warp_per_block = blockDim.x / WARP_SIZE;
+    int warp_id = threadIdx.x / WARP_SIZE;
+    int lane_id = threadIdx.x % WARP_SIZE;
+    int start_prime, end_prime;
+    if(threadIdx.x == 0){
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+        start = 0;
+        end = buf_count[blockIdx.x]; // The end position of the buffer
+        assert(t_global_buffer!=NULL);
+    } 
+
+    __syncthreads();
+
+     while (true){
+        __syncthreads();
+        if(start >= end) break;
+        start_prime = start + warp_id; // Get the vertex id position
+        end_prime = end; // Get the last position of the vertex id
+        __syncthreads();
+        if(start_prime >= end_prime) continue; // The vertex position is larger than the number of valid vertices in the buffer
+        if(threadIdx.x == 0){
+            start = min(start + warp_per_block, end); // update the start position
+        }
+        int v = t_global_buffer[start_prime]; // Get the vertex id
+        // int upperv = upper[v];
+        int minhindex = min(hindex_in[v], hindex_out[v]);
+
+        int o_offset_start = out_offset[v]; 
+        int o_offset_end = out_offset[v+1]; 
+         
+
+        int i_offset_start = in_offset[v];
+        int i_offset_end = in_offset[v+1];
+
+    
+        while(true){
+            __syncwarp();
+            if(upper[v] <= minhindex) break;
+            if(o_offset_start >= o_offset_end) break;
+            int o_uid = o_offset_start + lane_id;
+            o_offset_start = o_offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
+            if(o_uid < o_offset_end){
+                int o_u = out_adj[o_uid];
+                if(core0[o_u] >= k){
+                // if(core0[o_u] >= k && upper[v] >= upper[o_u] && upper[o_u] > minhindex){
+                    change[o_u] = 1;
+                    *global_done = 1;
+                }
+            }
+        }
+
+        __syncwarp();
+
+
+        while(true){
+            __syncwarp();
+            if(upper[v] <= minhindex) break;
+            if(i_offset_start >= i_offset_end) break;
+            int i_uid = i_offset_start + lane_id; 
+            i_offset_start = i_offset_start + WARP_SIZE; 
+            if(i_uid < i_offset_end){
+                int i_u = in_adj[i_uid];
+                if(core0[i_u] >= k){
+                // if(core0[i_u] >= k && upper[v] >= upper[i_u] && upper[i_u] > minhindex){
+                    change[i_u] = 1;
+                    *global_done = 1;
+                }
+            }
+        }
+
+    }
+}
+
+
+__global__ void b_update_upper_by_visit(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* core){
+
+    __shared__ int start, end;
+    __shared__ int* t_global_buffer;
+
+    if(threadIdx.x == 0){
+        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
+        start = 0;
+        end = buf_count[blockIdx.x]; // The end position of the buffer
+        assert(t_global_buffer!=NULL);
+    } 
+
+    __syncthreads();
+
+    for(int id = threadIdx.x; id < end; id += BLK_DIM){
+        int v = t_global_buffer[id];
+        core[v] = min(hindex_in[v], hindex_out[v]);
+    }
+
+}
+
+
+void klistanchorbinary_de(G_pointers &p){
+    
+
+    int kmax = 0;
+    int count = 0;
+    int* global_count = 0;
+    chkerr(cudaMalloc(&global_count, sizeof(int)));
+
+
+    int* global_buffer;
+    chkerr(cudaMalloc(&global_buffer, sizeof(int) * BLK_NUMS * BUFFER_SIZE));
+
+    int* buf_count;
+    chkerr(cudaMalloc(&buf_count, sizeof(int) * BLK_NUMS));
+    cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
+
+    while(count < p.num_vtx){
+        cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
+        kmax_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.num_vtx, global_buffer, buf_count, kmax);
+        kmax_update<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.t_out_deg, p.out_offset, p.out_adj, kmax); 
+        chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
+        kmax ++;
+    }
+
+    int* core0;
+    chkerr(cudaMalloc(&core0, p.num_vtx*sizeof(int)));
+    chkerr(cudaMemcpy(core0, p.t_in_deg, sizeof(int)*p.num_vtx, cudaMemcpyDeviceToDevice));     
+
+    cout << "kmax = " << kmax-1 << endl;
+
+    count = 0;
+    chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+    chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+    cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
+    cudaMemset(global_count, 0, sizeof(int));
+    int lmax = 0;
+    while(count < p.num_vtx){
+        cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
+        lmax_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_out_deg, p.num_vtx, global_buffer, buf_count, lmax);
+        lmax_update<<<BLK_NUMS,BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_out_deg, p.t_in_deg, p.in_offset, p.in_adj, lmax);
+        chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost)); 
+        lmax ++;
+    }
+
+    cout << "lmax = " << lmax-1 << endl;
+
+
+    cudaMemset(global_count, 0, sizeof(int));
+    int l = 0;
+    count = 0;
+    cudaMemset(p.core, 0, p.num_vtx * sizeof(int));
+    chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+    chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+
+    int* hindex_out;
+    chkerr(cudaMalloc(&hindex_out, sizeof(int) * p.num_vtx));
+    int* hindex_in;
+    chkerr(cudaMalloc(&hindex_in, sizeof(int) * p.num_vtx));
+
+    int* change;
+    chkerr(cudaMalloc((&change), p.num_vtx*sizeof(int)));  
+        
+    int* global_done;
+    chkerr(cudaMalloc(&global_done, sizeof(int)));  
+
+    cudaMemset(hindex_in, 0, sizeof(int) * p.num_vtx); // 每一个点in的hindex checked
+    cudaMemset(hindex_out, 0, sizeof(int) * p.num_vtx); // 每一个点out的hindex  checked 
+
+    //  Store the res
+    int** res = new int*[kmax];
+    for(int l = 0; l < kmax; l ++){
+        res[l] = new int[p.num_vtx];
+    }
+
+    for(int k = 0; k < kmax; k ++){
+
+        cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
+        cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
+
+        if(k == 0){
+            count = 0;
+            l = 0;
+            while(count < p.num_vtx){
+                scan_phase<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l, p.core); // scan to find the invalid vertex
+                update_phase<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
+                chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
+                l ++;
+            }
+        }else{
+            int done = 1;
+            b_update_visit_by_core0<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k, p.core); // 这个在while循环外面
+            while(done){
+                
+                // cudaMemset(hindex_in, 0, sizeof(int) * p.num_vtx); // 每一个点in的hindex checked
+                // cudaMemset(hindex_out, 0, sizeof(int) * p.num_vtx); // 每一个点out的hindex  checked
+                cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS); // buf count  checked
+                cudaMemset(change, 0, sizeof(int) * p.num_vtx); // 是否改变  checked
+                cudaMemset(global_done, 0, sizeof(int));  // 是否完成  checked
+
+
+                b_vertex_to_buffer<<<BLK_NUMS, BLK_DIM>>>(p.num_vtx, global_buffer, buf_count, p.visit); // 将需要改变的放在buffer里面并设置visit = 1 checked
+
+                b_hindex_out_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
+
+                b_hindex_in_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_in, p.in_adj, p.in_offset, k);
+
+                b_update_change_status<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, p.out_adj, p.out_offset, change, core0, k, global_done);
+
+                b_update_upper_by_visit<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core);// update p.core by p.visit
+
+                cudaMemcpy(p.visit, change, sizeof(int)*p.num_vtx, cudaMemcpyDeviceToDevice);
+
+                cudaMemcpy(&done, global_done, sizeof(int), cudaMemcpyDeviceToHost);
+
+            }
+        }
+           chkerr(cudaMemcpy(res[k], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
+    }
+
+      // Save to local the k_status
+    std::ifstream file("/home/cheng/DCoreGPU/dataset/em/vtx2id.txt");  // 打开文件
+    unordered_map<int, int> id2vtx;
+    int vtx, id;
+    // 逐行读取数据
+    while (file >> vtx >> id) {
+        id2vtx[id] = vtx;
+    }
+
+    for(int k = 0; k < kmax; k ++){
+        std::ofstream wr("/home/cheng/DCoreGPU/dataset/em/emanchor-"+std::to_string(k)+"-gpu.txt");
+
+        for(int v = 0; v < p.num_vtx; v ++){
+            wr << id2vtx[v] << " " << res[k][v] << std::endl;
+        }
+    }
+        
+
+
+}

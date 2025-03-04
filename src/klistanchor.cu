@@ -844,12 +844,13 @@ void klistanchor_de(G_pointers &p){
     chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
     chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
 
-    int** res = new int*[kmax];
-    for(int l = 0; l < kmax; l ++){
-        res[l] = new int[p.num_vtx];
-    }
+    // int** res = new int*[kmax];
+    // for(int l = 0; l < kmax; l ++){
+    //     res[l] = new int[p.num_vtx];
+    // }
 
     for(int k = 0; k < kmax; k ++){
+        // cout << "k = " << k << endl;
         int h_min = INT_MAX; 
         cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
         cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
@@ -890,26 +891,26 @@ void klistanchor_de(G_pointers &p){
                 cudaMemcpy(&done, global_done, sizeof(int), cudaMemcpyDeviceToHost);
             }
         }
-        chkerr(cudaMemcpy(res[k], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
+        // chkerr(cudaMemcpy(res[k], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
     }
 
 
-    std::ifstream file("/home/cheng/DCoreGPU/dataset/em/vtx2id.txt");  // 打开文件
-    unordered_map<int, int> id2vtx;
-    int vtx, id;
-    // 逐行读取数据
-    while (file >> vtx >> id) {
-        id2vtx[id] = vtx;
-    }
+    // std::ifstream file("/home/cheng/DCoreGPU/dataset/pokec/vtx2id.txt");  // 打开文件
+    // unordered_map<int, int> id2vtx;
+    // int vtx, id;
+    // // 逐行读取数据
+    // while (file >> vtx >> id) {
+    //     id2vtx[id] = vtx;
+    // }
 
 
-    for(int k = 0; k < kmax; k ++){
-        std::ofstream wr("/home/cheng/DCoreGPU/dataset/em/em-"+std::to_string(k)+"-gpu-a4.txt");
+    // for(int k = 0; k < kmax; k ++){
+    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/pokec/pokec-"+std::to_string(k)+"-gpu-a4.txt");
 
-        for(int v = 0; v < p.num_vtx; v ++){
-            wr << id2vtx[v] << " " << res[k][v] << std::endl;
-        }
-    }
+    //     for(int v = 0; v < p.num_vtx; v ++){
+    //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
+    //     }
+    // }
 
 
 

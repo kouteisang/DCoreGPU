@@ -1,5 +1,5 @@
 dataset = "em"
-for k in range(0, 27):
+for k in range(0, 28):
     print("k = ", k)
     ground_truth = {}
     gcore = {}
@@ -11,7 +11,7 @@ for k in range(0, 27):
             ground_truth[v] = c
     ft.close()
 
-    with open("/home/cheng/DCoreGPU/dataset/em/em-"+str(k)+"-gpu-a4.txt", "r") as fg:
+    with open("/home/cheng/DCoreGPU/dataset/em/emanchor-"+str(k)+"-gpu.txt", "r") as fg:
         for line in fg:
             v, c = line.rstrip().split(" ")
             v, c = int(v), int(c)
