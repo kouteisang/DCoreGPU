@@ -2,7 +2,7 @@
 
 
 
-__global__ void kmax_scan(int* t_in_deg, int num_vtx, int* global_buffer, int* buf_count, int level){
+__global__ void kmax_scan_p(int* t_in_deg, int num_vtx, int* global_buffer, int* buf_count, int level){
 
     // printf("%d\n", p.num_vtx);
     __shared__ int* t_global_buffer;
@@ -29,8 +29,7 @@ __global__ void kmax_scan(int* t_in_deg, int num_vtx, int* global_buffer, int* b
     }
 }
 
-
-__global__ void kmax_update(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* t_out_deg, int* out_offset, int *out_adj, int level){
+__global__ void kmax_update_p(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* t_out_deg, int* out_offset, int *out_adj, int level){
     
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -90,94 +89,7 @@ __global__ void kmax_update(int* global_buffer, int* buf_count, int* global_coun
 
 }
 
-
-__global__ void lmax_scan(int* t_out_deg, int num_vtx, int* global_buffer, int* buf_count, int l){
-
-    __shared__ int* t_global_buffer;
-    __shared__ int sh_buf_count;
-    int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    
-    if(threadIdx.x == 0){
-        sh_buf_count = 0;
-        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
-    }
-    __syncthreads();
-
-    for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
-        if(t_out_deg[v] == l){
-            int pos = atomicAdd(&sh_buf_count, 1);
-            t_global_buffer[pos] = v;
-        }
-    }
-    __syncthreads();
-
-    if(threadIdx.x == 0){
-        buf_count[blockIdx.x] = sh_buf_count;
-    
-    }
-}
-
-
-__global__ void lmax_update(int* global_buffer, int* buf_count, int* global_count, int* t_out_deg, int* t_in_deg, int* in_offset, int* in_adj, int l){
-      __shared__ int start, end;
-    __shared__ int* t_global_buffer;
-
-    int warp_per_block = blockDim.x / WARP_SIZE;
-    int warp_id = threadIdx.x / WARP_SIZE;
-    int lane_id = threadIdx.x % WARP_SIZE;
-    int start_prime, end_prime;
-    if(threadIdx.x == 0){
-        t_global_buffer = global_buffer + blockIdx.x * BUFFER_SIZE;
-        start = 0;
-        end = buf_count[blockIdx.x]; // The end position of the buffer
-        // printf("id = %d, end = %d\n", blockIdx.x, end);
-    } 
-
-    __syncthreads();
-
-    while(true){
-        __syncthreads();
-        // printf("end = %d\n", end);
-        if(start >= end) break; // All the thread break the iteration
-        start_prime = start + warp_id; // Get the vertex id position
-        end_prime = end; // Get the last position of the vertex id
-        __syncthreads();
-        if(start_prime >= end_prime) continue; // The vertex position is larger than the number of valid vertices in the buffer
-        if(threadIdx.x == 0){
-            start = min(start + warp_per_block, end); // update the start position
-        }
-        int v = t_global_buffer[start_prime]; // Get the vertex id
-        int offset_start = in_offset[v]; // offset of v 
-        int offset_end = in_offset[v+1]; // offset of v
-        
-        while (true){
-            __syncwarp();
-            if(offset_start >= offset_end) break;
-            int uid = offset_start + lane_id;
-            offset_start = offset_start + WARP_SIZE; // update the offset position, each thread maintain its own offset_start
-            if(uid >= offset_end) continue; // This vertex does not has so many neighbouthood
-            int u = in_adj[uid]; // v's out-neighbouthood u
-            if(t_out_deg[u] > l){
-                int out_deg_u = atomicSub(&t_out_deg[u], 1);
-                if(out_deg_u == (l+1)){
-                    int end_pos = atomicAdd(&end, 1);
-                    t_global_buffer[end_pos] = u;
-                }
-                if(out_deg_u <= l) { // Add it back
-                    atomicAdd(&t_out_deg[u], 1);
-                }
-            }
-        }   
-    }
-
-    if(threadIdx.x == 0 && end > 0){
-        atomicAdd(global_count, end);
-    }
-
-}
-
-
-__global__ void scan_phase(int* t_in_deg, int *t_out_deg, int* visit, int num_vtx, int* global_buffer, int* buf_count, int k, int l, int* core){
+__global__ void scan_phase_p(int* t_in_deg, int *t_out_deg, int* visit, int num_vtx, int* global_buffer, int* buf_count, int k, int l, int* core){
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int sh_buf_count;
@@ -212,7 +124,7 @@ __global__ void scan_phase(int* t_in_deg, int *t_out_deg, int* visit, int num_vt
 
 }
 
-__global__ void update_phase(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* in_adj, int* in_offset, int* t_out_deg, int* out_adj, int* out_offset, int* visit, int k, int l, int* core){
+__global__ void update_phase_p(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* in_adj, int* in_offset, int* t_out_deg, int* out_adj, int* out_offset, int* visit, int k, int l, int* core){
         
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -287,8 +199,7 @@ __global__ void update_phase(int* global_buffer, int* buf_count, int* global_cou
 
 }
 
-
-__global__ void b_update_visit_by_core0(int* core0, int* visit, int num_vtx, int k, int* core){
+__global__ void b_update_visit_by_core0_p(int* core0, int* visit, int num_vtx, int k, int* core){
      
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -300,7 +211,7 @@ __global__ void b_update_visit_by_core0(int* core0, int* visit, int num_vtx, int
     }
 }
 
-__global__ void b_vertex_to_buffer(int num_vtx, int* global_buffer, int* buf_count, int* visit){
+__global__ void b_vertex_to_buffer_p(int num_vtx, int* global_buffer, int* buf_count, int* visit){
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int sh_buf_count;
@@ -326,7 +237,7 @@ __global__ void b_vertex_to_buffer(int num_vtx, int* global_buffer, int* buf_cou
     }
 }
 
-__global__ void b_hindex_out_calculate(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
+__global__ void b_hindex_out_calculate_p(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
 
@@ -396,8 +307,7 @@ __global__ void b_hindex_out_calculate(int* global_buffer, int* buf_count, int* 
     }
 }
 
-
-__global__ void b_hindex_in_calculate(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k){
+__global__ void b_hindex_in_calculate_p(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k){
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
 
@@ -468,8 +378,7 @@ __global__ void b_hindex_in_calculate(int* global_buffer, int* buf_count, int* u
     }
 }
 
-
-__global__ void bb_hindex_out_calculate(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
+__global__ void bb_hindex_out_calculate_p(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
   
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -549,7 +458,7 @@ __global__ void bb_hindex_out_calculate(int* global_buffer, int* buf_count, int*
     
 }
 
-__global__ void bb_hindex_in_calculate(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k){
+__global__ void bb_hindex_in_calculate_p(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k){
    
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -629,7 +538,7 @@ __global__ void bb_hindex_in_calculate(int* global_buffer, int* buf_count, int* 
     
 }
 
-__global__ void b_update_change_status(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* upper, int* in_adj, int* in_offset, int* out_adj, int* out_offset, int* change, int* core0, int k, int* global_done){
+__global__ void b_update_change_status_p(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* upper, int* in_adj, int* in_offset, int* out_adj, int* out_offset, int* change, int* core0, int k, int* global_done){
 
      __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -710,8 +619,7 @@ __global__ void b_update_change_status(int* global_buffer, int* buf_count, int* 
     }
 }
 
-
-__global__ void b_update_upper_by_visit(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* core){
+__global__ void b_update_upper_by_visit_p(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* core){
 
     __shared__ int end;
     __shared__ int* t_global_buffer;
@@ -731,9 +639,74 @@ __global__ void b_update_upper_by_visit(int* global_buffer, int* buf_count, int*
 
 }
 
+__global__ void b_kstatus_update_p(int* t_in_deg, bool* kstatus, int num_vtx){
 
-void klistanchorbinary_de(G_pointers &p){
+    int tid = blockDim.x * blockIdx.x + threadIdx.x; 
+    for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
+        kstatus[t_in_deg[v]] = true;
+    }
+
+}
+
+__global__ void b_check_innb_count_p(int* in_count_num, int* core, int* core0, int num_vtx, int* in_offset, int* in_adj, int k){
     
+    int tid = blockDim.x * blockIdx.x + threadIdx.x; 
+    
+    for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
+        int i_offset_start = in_offset[v];
+        int i_offset_end = in_offset[v+1];
+        int cnt = 0;
+        int core_v = core[v];  // 预加载 core[v]
+        if(core0[v] < k){
+            in_count_num[v] = INT_MAX;
+            continue;
+        }
+        for(int uid = i_offset_start; uid < i_offset_end; uid ++){
+            int u = in_adj[uid];
+            cnt += (core[u] >= core_v && core0[u] >= k);
+        }
+        in_count_num[v] = cnt;
+    }
+} 
+
+__device__ int b_warpReduceMin_p(int val) {
+    // 使用 warp-level shuffle 归约最小值
+    for (int offset = 16; offset > 0; offset /= 2)
+        val = min(val, __shfl_down_sync(0xFFFFFFFF, val, offset));
+    return val;
+}
+
+__global__ void b_reduceMinkernel_p(int* in_count_num, int* d_min, int num_vtx){
+    __shared__ float sharedMin[256/32];  
+
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int local_tid = threadIdx.x;
+
+    int min_val = (tid < num_vtx) ? in_count_num[tid] : INT_MAX;
+
+    min_val = b_warpReduceMin_p(min_val);
+    
+    if (local_tid % WARP_SIZE == 0) {
+        sharedMin[local_tid / WARP_SIZE] = min_val;
+    }
+
+    __syncthreads();
+
+     // 线程 0 进一步归约共享内存中的最小值
+    if (local_tid < WARP_SIZE) {
+        int blockMin = (local_tid < 256 / WARP_SIZE) ? sharedMin[local_tid] : INT_MAX;
+        blockMin = b_warpReduceMin_p(blockMin);
+        if (local_tid == 0) {
+            atomicMin(d_min, blockMin);  // 用原子操作更新全局最小值
+        }
+    }
+}
+
+void klistanchorbinaryprune_de(G_pointers &p){
+    
+    int max_val = INT_MAX;
+    int* d_min;
+    chkerr(cudaMalloc(&d_min, sizeof(int))); 
 
     int kmax = 0;
     int count = 0;
@@ -750,8 +723,8 @@ void klistanchorbinary_de(G_pointers &p){
 
     while(count < p.num_vtx){
         cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
-        kmax_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.num_vtx, global_buffer, buf_count, kmax);
-        kmax_update<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.t_out_deg, p.out_offset, p.out_adj, kmax); 
+        kmax_scan_p<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.num_vtx, global_buffer, buf_count, kmax);
+        kmax_update_p<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.t_out_deg, p.out_offset, p.out_adj, kmax); 
         chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
         kmax ++;
     }
@@ -762,21 +735,23 @@ void klistanchorbinary_de(G_pointers &p){
 
     cout << "kmax = " << kmax-1 << endl;
 
-    // count = 0;
-    // chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
-    // chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
-    // cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
-    // cudaMemset(global_count, 0, sizeof(int));
-    // int lmax = 0;
-    // while(count < p.num_vtx){
-    //     cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
-    //     lmax_scan<<<BLK_NUMS, BLK_DIM>>>(p.t_out_deg, p.num_vtx, global_buffer, buf_count, lmax);
-    //     lmax_update<<<BLK_NUMS,BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_out_deg, p.t_in_deg, p.in_offset, p.in_adj, lmax);
-    //     chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost)); 
-    //     lmax ++;
-    // }
+// klist part
+    bool* kstatus;
+    chkerr(cudaMalloc(&kstatus, kmax * sizeof(bool)));
+    bool* h_kstatus = new bool[kmax];
+    b_kstatus_update_p<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, kstatus, p.num_vtx);
+    chkerr(cudaMemcpy(h_kstatus, kstatus, sizeof(bool)*kmax, cudaMemcpyDeviceToHost));     
 
-    // cout << "lmax = " << lmax-1 << endl;
+    // int process = 0;
+    vector<int> h_kstatus_v;
+    for(int i = 0; i < kmax; i ++){
+        if(h_kstatus[i]){
+            h_kstatus_v.push_back(i);
+            // cout << "i = " << i << endl;
+        }
+    }
+
+    cout << h_kstatus_v.size() << endl;
 
 
     cudaMemset(global_count, 0, sizeof(int));
@@ -806,23 +781,29 @@ void klistanchorbinary_de(G_pointers &p){
     //     res[l] = new int[p.num_vtx];
     // }
 
-    for(int k = 0; k < kmax; k ++){
 
+    int pos = 0;
+    int h_kstatus_v_len = h_kstatus_v.size();
+    while(pos < h_kstatus_v_len){
+
+        int h_min = INT_MAX; 
+        int k = h_kstatus_v[pos];
         cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
         cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
+        cudaMemset(p.in_count_num, -1, p.num_vtx * sizeof(int));
 
-        if(k == 0){
+        if(pos == 0){
             count = 0;
             l = 0;
             while(count < p.num_vtx){
-                scan_phase<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l, p.core); // scan to find the invalid vertex
-                update_phase<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
+                scan_phase_p<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l, p.core); // scan to find the invalid vertex
+                update_phase_p<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
                 chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
                 l ++;
             }
-        }else{
+        }else if(pos > 0){
             int done = 1;
-            b_update_visit_by_core0<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k, p.core); // 这个在while循环外面
+            b_update_visit_by_core0_p<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k, p.core); // 这个在while循环外面
             while(done){
                 
                 // cudaMemset(hindex_in, 0, sizeof(int) * p.num_vtx); // 每一个点in的hindex checked
@@ -832,15 +813,15 @@ void klistanchorbinary_de(G_pointers &p){
                 cudaMemset(global_done, 0, sizeof(int));  // 是否完成  checked
 
 
-                b_vertex_to_buffer<<<BLK_NUMS, BLK_DIM>>>(p.num_vtx, global_buffer, buf_count, p.visit); // 将需要改变的放在buffer里面并设置visit = 1 checked
+                b_vertex_to_buffer_p<<<BLK_NUMS, BLK_DIM>>>(p.num_vtx, global_buffer, buf_count, p.visit); // 将需要改变的放在buffer里面并设置visit = 1 checked
 
-                bb_hindex_out_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
+                bb_hindex_out_calculate_p<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
 
-                bb_hindex_in_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_in, p.in_adj, p.in_offset, k);
+                bb_hindex_in_calculate_p<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_in, p.in_adj, p.in_offset, k);
 
-                b_update_change_status<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, p.out_adj, p.out_offset, change, core0, k, global_done);
+                b_update_change_status_p<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, p.out_adj, p.out_offset, change, core0, k, global_done);
 
-                b_update_upper_by_visit<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core);// update p.core by p.visit
+                b_update_upper_by_visit_p<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core);// update p.core by p.visit
 
                 cudaMemcpy(p.visit, change, sizeof(int)*p.num_vtx, cudaMemcpyDeviceToDevice);
 
@@ -848,6 +829,21 @@ void klistanchorbinary_de(G_pointers &p){
 
             }
         }
+
+        if(pos + 1 < h_kstatus_v_len && h_kstatus_v[pos+1] != k+1){
+            cudaMemcpy(d_min, &max_val, sizeof(int), cudaMemcpyHostToDevice);
+            b_check_innb_count_p<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, p.core, core0, p.num_vtx, p.in_offset, p.in_adj, k);
+            b_reduceMinkernel_p<<< (p.num_vtx+256-1)/256, 256>>>(p.in_count_num, d_min, p.num_vtx);
+            cudaMemcpy(&h_min, d_min, sizeof(int), cudaMemcpyDeviceToHost);
+            // cout << "k = " << k << ", h_min = " << h_min << endl;
+
+            if(h_min != INT_MAX && pos+1 < h_kstatus_v_len && h_min+1 < h_kstatus_v[pos+1]){
+                h_kstatus_v.insert(h_kstatus_v.begin() + pos + 1, h_min+1);
+                h_kstatus_v_len ++;
+                // cout << h_min+1 << " is inserted into the list " << endl;
+            }
+        }
+        pos ++;
         //    chkerr(cudaMemcpy(res[k], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
     }
 
@@ -868,6 +864,5 @@ void klistanchorbinary_de(G_pointers &p){
     //     }
     // }
         
-
 
 }

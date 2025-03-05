@@ -1,14 +1,14 @@
 #include "utils.h"
 #include "./src/klist.cuh"
 #include "./src/klistprune.cuh"
-#include "./src/klistanchor.cuh"
 #include "./src/klistanchorbinary.cuh"
+#include "./src/klistanchorbinaryprune.cuh"
 
 enum Algorithm{
     klist = 1,
     klistprune = 2,
-    klistanchored = 3,
-    klistanchorbinary = 4,
+    klistanchorbinary = 3,
+    klistanchorbinaryprune = 4,
 };
 
 int main(int argc, char* argv[]){
@@ -58,13 +58,17 @@ int main(int argc, char* argv[]){
             cout << "Algorithm = klistprune" << endl;
             klistprune_de(data_pointers);
             break;
-        case Algorithm::klistanchored:
-            cout << "Agorithm = klistAnchored" << endl;
-            klistanchor_de(data_pointers);
-            break;
         case Algorithm::klistanchorbinary:
             cout << "Algorithm = klistanchorbinary" << endl;
             klistanchorbinary_de(data_pointers);
+            break;
+        case Algorithm::klistanchorbinaryprune:
+            cout << "Algorithm = klistanchorbinaryprune" << endl;
+            klistanchorbinaryprune_de(data_pointers);
+            break;
+        default:
+            cout << "Algorithm = klist" << endl;
+            klist_de(data_pointers);
             break;
     }
 

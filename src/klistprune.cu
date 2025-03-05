@@ -273,8 +273,6 @@ __global__ void reduceMinkernel(int* in_count_num, int* d_min, int num_vtx){
             atomicMin(d_min, blockMin);  // 用原子操作更新全局最小值
         }
     }
-
-
 }
 
 
@@ -430,7 +428,8 @@ void klistprune_de(G_pointers &p){
     int pos = 0;
     int l = 0;
     count = 0;
-    while(pos < h_kstatus_v.size()){
+    int h_kstatus_v_len = h_kstatus_v.size();
+    while(pos < h_kstatus_v_len){
         int h_min = INT_MAX; 
         int k = h_kstatus_v[pos];
         cudaMemset(p.in_count_num, -1, p.num_vtx * sizeof(int));
@@ -453,15 +452,16 @@ void klistprune_de(G_pointers &p){
             chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
             l ++;
         }
-        if(pos + 1 < h_kstatus_v.size() && h_kstatus_v[pos+1] != k+1){
+        if(pos + 1 < h_kstatus_v_len && h_kstatus_v[pos+1] != k+1){
             cudaMemcpy(d_min, &max_val, sizeof(int), cudaMemcpyHostToDevice);
             check_innb_count<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, p.core, core0, p.num_vtx, p.in_offset, p.in_adj, k);
             reduceMinkernel<<< (p.num_vtx+256-1)/256, 256>>>(p.in_count_num, d_min, p.num_vtx);
             cudaMemcpy(&h_min, d_min, sizeof(int), cudaMemcpyDeviceToHost);
             // cout << "k = " << k << ", h_min = " << h_min << endl;
 
-            if(h_min != INT_MAX && pos+1 < h_kstatus_v.size() && h_min+1 < h_kstatus_v[pos+1]){
+            if(h_min != INT_MAX && pos+1 < h_kstatus_v_len && h_min+1 < h_kstatus_v[pos+1]){
                 h_kstatus_v.insert(h_kstatus_v.begin() + pos + 1, h_min+1);
+                h_kstatus_v_len ++;
                 // cout << h_min+1 << " is inserted into the list " << endl;
             }
         }
