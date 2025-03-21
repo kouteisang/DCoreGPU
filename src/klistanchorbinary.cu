@@ -549,7 +549,7 @@ __global__ void bb_hindex_out_calculate(int* global_buffer, int* buf_count, int*
     
 }
 
-__global__ void bb_hindex_in_calculate(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k){
+__global__ void bb_hindex_in_calculate(int* global_buffer, int* buf_count, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
    
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -583,6 +583,7 @@ __global__ void bb_hindex_in_calculate(int* global_buffer, int* buf_count, int* 
             start = min(start + warp_per_block, end); // update the start position
         }
         int v = t_global_buffer[start_prime]; // Get the vertex id
+        if(hindex_out[v] == 0) continue;        
 
         int offset_start = in_offset[v]; // offset of v
         int offset_end = in_offset[v+1]; // offset of v
@@ -836,7 +837,7 @@ void klistanchorbinary_de(G_pointers &p){
 
                 bb_hindex_out_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
 
-                bb_hindex_in_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_in, p.in_adj, p.in_offset, k);
+                bb_hindex_in_calculate<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
 
                 b_update_change_status<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, p.out_adj, p.out_offset, change, core0, k, global_done);
 

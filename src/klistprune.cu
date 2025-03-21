@@ -423,7 +423,9 @@ void klistprune_de(G_pointers &p){
         }
     }
 
-    cout << h_kstatus_v.size() << endl;
+    // if(!h_kstatus[0]){
+    //     h_kstatus_v.insert(h_kstatus_v.begin(), 0);
+    // }
 
     int pos = 0;
     int l = 0;
@@ -491,4 +493,5 @@ void klistprune_de(G_pointers &p){
     //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
     //     }
     // }
+    cout << h_kstatus_v.size() << endl;
 }

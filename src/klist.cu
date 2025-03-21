@@ -314,7 +314,10 @@ void klist_de(G_pointers &p){
 
     // int *k_res = new int[p.num_vtx];
     // chkerr(cudaMemcpy(k_res, p.t_in_deg, sizeof(int)*(p.num_vtx), cudaMemcpyDeviceToHost)); 
-    
+    // for(int i = 0; i < p.num_vtx; i ++){
+    //     cout << i << " " << k_res[i] << endl;
+    // }
+
     // std::ifstream file("/home/cheng/DCoreGPU/dataset/papertest/vtx2id.txt");  // 打开文件
     // unordered_map<int, int> id2vtx;
     // int vtx, id;
@@ -369,8 +372,8 @@ void klist_de(G_pointers &p){
     // chkerr(cudaMemcpy(in_degree_res, p.t_in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
 
 
-    // Save to local
-    // std::ifstream file("/home/cheng/DCoreGPU/dataset/hollywood-2011/vtx2id.txt");  // 打开文件
+    // // Save to local
+    // std::ifstream file("/home/cheng/DCoreGPU/dataset/my/vtx2id.txt");  // 打开文件
     // unordered_map<int, int> id2vtx;
     // int vtx, id;
     // // 逐行读取数据
@@ -378,8 +381,8 @@ void klist_de(G_pointers &p){
     //     id2vtx[id] = vtx;
     // }
 
-    // for(int k = 907; k < 917; k ++){
-    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/hollywood-2011/livehollywood-2011-"+std::to_string(k)+"-gpu.txt");
+    // for(int k = 0; k < level; k ++){
+    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/my/my-"+std::to_string(k)+"-gpu.txt");
 
     //     for(int v = 0; v < p.num_vtx; v ++){
     //         wr << id2vtx[v] << " " << res[k][v] << std::endl;

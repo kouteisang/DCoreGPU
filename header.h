@@ -24,15 +24,11 @@ using std::cout;
 using std::endl;
 
 typedef long long ll;
-
-#define BLK_NUMS 56
+#define BLK_NUMS 256
 #define BLK_DIM 1024
 #define BUFFER_SIZE 1000000
 #define WARP_SIZE 32
 
-#define BLK_NUMS2 448
-#define BLK_DIM2 128
-#define BUFFER_SIZE2 200000
 
 typedef struct G_pointers {
     int* in_adj;

@@ -8,7 +8,7 @@ INCLUDES = -I./Graph
 TARGET = main
 
 # Source files
-CUDA_SRCS = main.cu src/klist.cu src/klistprune.cu src/klistanchorbinary.cu src/klistanchorbinaryprune.cu
+CUDA_SRCS = main.cu src/klist.cu src/klistprune.cu src/klistanchorbinary.cu src/klistanchorbinaryprune.cu src/klistanchorsequenceprune.cu
 CPP_SRCS = Graph/Graph.cpp
 
 # Rules
