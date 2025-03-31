@@ -373,7 +373,8 @@ __global__ void reduceMinkernel(int* in_count_num, int* d_min, int num_vtx){
 // }
 
 void klistprune_de(G_pointers &p){
-
+    
+    int iteration = 0;
     int level = 0;
     int count = 0;
     int* global_count = 0;
@@ -453,6 +454,7 @@ void klistprune_de(G_pointers &p){
             klistprune_calculate_update<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
             chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
             l ++;
+            iteration++;
         }
         if(pos + 1 < h_kstatus_v_len && h_kstatus_v[pos+1] != k+1){
             cudaMemcpy(d_min, &max_val, sizeof(int), cudaMemcpyHostToDevice);
@@ -493,5 +495,6 @@ void klistprune_de(G_pointers &p){
     //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
     //     }
     // }
-    cout << h_kstatus_v.size() << endl;
+    // cout << h_kstatus_v.size() << endl;
+    cout << "iteration = " << iteration << endl;
 }

@@ -5,15 +5,15 @@ from tqdm import tqdm
 
 
 if __name__ == '__main__':
-    fw = open("/home/cheng/DCoreGPU/enwiki-2013.txt", 'w')
+    fw = open("/home/cheng/DCoreGPU/dataset/CollegeMsg-June/CollegeMsg-June-new.txt", 'w')
     maxx = 0
     cnt = 0
     tuple_set = set()
-    with open("/home/cheng/DCoreGPU/enwiki-2013-dirty.txt") as f:
+    with open("/home/cheng/DCoreGPU/dataset/CollegeMsg-June/CollegeMsg-June.txt") as f:
         for line in tqdm(f):
             if "#" in line:
                 continue
-            u, v = line.rstrip().split("	")
+            u, v = line.rstrip().split(" ")
             u = int(u)
             v = int(v)
             if u == v:

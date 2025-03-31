@@ -709,7 +709,8 @@ __global__ void b_reduceMinkernel_ps(int* in_count_num, int* d_min, int num_vtx)
 
 void klistanchorsequenceprune_de(G_pointers &p){
 
-    int iteration = 0;
+    int iterationh = 0;
+    int iterationk = 0;
 
     int max_val = INT_MAX;
     int* d_min;
@@ -809,12 +810,13 @@ void klistanchorsequenceprune_de(G_pointers &p){
                 update_phase_ps<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
                 chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
                 l ++;
+                iterationk ++;
             }
         }else if(pos > 0){
             int done = 1;
             b_update_visit_by_core0_ps<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k, p.core); // 这个在while循环外面
             while(done){
-                iteration ++;
+                iterationh ++;
                 // cudaMemset(hindex_in, 0, sizeof(int) * p.num_vtx); // 每一个点in的hindex checked
                 // cudaMemset(hindex_out, 0, sizeof(int) * p.num_vtx); // 每一个点out的hindex  checked
                 cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS); // buf count  checked
@@ -873,6 +875,9 @@ void klistanchorsequenceprune_de(G_pointers &p){
     //     }
     // }
     // cout << h_kstatus_v.size() << endl;    
-    cout << "iteration = " << iteration << endl;
+    cout << "iterationh = " << iterationh << endl;
+    cout << "iterationk = " << iterationk << endl;
+    cout << "total iteration = " << iterationk + iterationh << endl;
+
 
 }

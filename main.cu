@@ -15,7 +15,7 @@ enum Algorithm{
 
 int main(int argc, char* argv[]){
 
-    cudaSetDevice(0);
+    cudaSetDevice(1);
 
     string dataset = "em";
     int alg = 1; // klist, klist-prune
