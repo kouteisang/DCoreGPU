@@ -376,20 +376,20 @@ void klist_de(G_pointers &p){
 
 
     // // Save to local
-    std::ifstream file("/home/cheng/DCoreGPU/dataset/CollegeMsg-October/vtx2id.txt");  // 打开文件
-    unordered_map<int, int> id2vtx;
-    int vtx, id;
-    // 逐行读取数据
-    while (file >> vtx >> id) {
-        id2vtx[id] = vtx;
-    }
+    // std::ifstream file("/home/cheng/DCoreGPU/dataset/CollegeMsg-October/vtx2id.txt");  // 打开文件
+    // unordered_map<int, int> id2vtx;
+    // int vtx, id;
+    // // 逐行读取数据
+    // while (file >> vtx >> id) {
+    //     id2vtx[id] = vtx;
+    // }
 
     // for(int k = 0; k < level; k ++){
-        std::ofstream wr("/home/cheng/DCoreGPU/dataset/CollegeMsg-October/CollegeMsg-October-CoreNumber.txt");
+        // std::ofstream wr("/home/cheng/DCoreGPU/dataset/CollegeMsg-October/CollegeMsg-October-CoreNumber.txt");
 
-        for(int v = 0; v < p.num_vtx; v ++){
-            wr << id2vtx[v] << " " << resmax[v] << std::endl;
-        }
+        // for(int v = 0; v < p.num_vtx; v ++){
+        //     wr << id2vtx[v] << " " << resmax[v] << std::endl;
+        // }
     // }
     
 }

@@ -4,18 +4,20 @@
 #include "./src/klistanchorbinary.cuh"
 #include "./src/klistanchorbinaryprune.cuh"
 #include "./src/klistanchorsequenceprune.cuh"
+#include "./src/gpubaseline.cuh"
 
 enum Algorithm{
     klist = 1,
     klistprune = 2,
     klistanchorbinary = 3,
     klistanchorbinaryprune = 4,
-    klistanchorsequenceprune = 5, 
+    klistanchorsequenceprune = 5,
+    gpubaseline = 6, 
 };
 
 int main(int argc, char* argv[]){
 
-    cudaSetDevice(1);
+    cudaSetDevice(0);
 
     string dataset = "em";
     int alg = 1; // klist, klist-prune
@@ -71,6 +73,10 @@ int main(int argc, char* argv[]){
         case Algorithm::klistanchorsequenceprune:
             cout << "Algorithm = klistanchorsequenceprune" << endl;
             klistanchorsequenceprune_de(data_pointers);
+            break;
+        case Algorithm::gpubaseline:
+            cout << "Algorithm = gpubaseline" << endl;
+            gpu_baseline_de(data_pointers);
             break;
         default:
             cout << "Algorithm = klist" << endl;
