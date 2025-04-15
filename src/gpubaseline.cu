@@ -152,7 +152,7 @@ __global__ void update_buffer(int* t_in_deg, int* in_offset, int* in_adj,
             start = min(start + warp_per_block, end); // update the start position
         }
         int v = t_global_buffer[start_prime]; // Get the vertex id
-
+        // printf("v = %d", v);
         int o_offset_start = out_offset[v]; // offset of v
         int o_offset_end = out_offset[v+1]; // offset of v
 
@@ -193,6 +193,8 @@ __global__ void update_buffer(int* t_in_deg, int* in_offset, int* in_adj,
 
 void gpu_baseline_de(G_pointers &p){
 
+    int* res = new int[p.num_vtx];
+
     int level = 0;
     int count = 0;
     int* global_count = 0;
@@ -227,10 +229,10 @@ void gpu_baseline_de(G_pointers &p){
             count = 0;
 
             add_to_buffer<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, global_buffer, buf_count, k, l, p.num_vtx, p.visit);
-            update_buffer<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.in_offset, p.in_adj, p.t_out_deg, p.out_deg, p.out_adj, global_buffer, buf_count, k, l, p.num_vtx, p.visit, global_count);
-            
+            update_buffer<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.in_offset, p.in_adj, p.t_out_deg, p.out_offset, p.out_adj, global_buffer, buf_count, k, l, p.num_vtx, p.visit, global_count);
+            // if(k == 6 && l == 6)
+            // chkerr(cudaMemcpy(res, p.visit, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
             chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
-
             if(count == p.num_vtx){
                 break;
             }else{
@@ -238,5 +240,15 @@ void gpu_baseline_de(G_pointers &p){
             }
         }
     }
+
+    // int rescnt = 0;
+    // for(int i = 0; i < p.num_vtx; i ++){
+    //     if(res[i] == 0){
+    //         rescnt ++;
+    //         cout << i << ", ";
+    //     }
+    // }
+    // cout << endl;
+    // cout << "rescnt = " << rescnt << endl;
 
 }

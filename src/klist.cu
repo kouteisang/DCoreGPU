@@ -317,18 +317,6 @@ void klist_de(G_pointers &p){
     // for(int i = 0; i < p.num_vtx; i ++){
     //     cout << i << " " << k_res[i] << endl;
     // }
-
-    // std::ifstream file("/home/cheng/DCoreGPU/dataset/papertest/vtx2id.txt");  // 打开文件
-    // unordered_map<int, int> id2vtx;
-    // int vtx, id;
-    // // 逐行读取数据
-    // while (file >> vtx >> id) {
-    //     id2vtx[id] = vtx;
-    // }
-    // for(int vv = 0; vv < p.num_vtx; vv ++){
-    //     cout << id2vtx[vv] << " " << k_res[vv] << endl;
-    // }
-
  
 
     // Store the res
@@ -337,7 +325,7 @@ void klist_de(G_pointers &p){
     //     res[l] = new int[p.num_vtx];
     // }
     
-    int* resmax = new int[p.num_vtx];
+    // int* resmax = new int[p.num_vtx];
 
 
     int l = 0;
@@ -360,9 +348,9 @@ void klist_de(G_pointers &p){
             chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
             l ++;
         }
-        if(k == level - 1){
-            chkerr(cudaMemcpy(resmax, p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
-        }
+        // if(k == level - 1){
+            // chkerr(cudaMemcpy(res[k], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
+        // }
         // cout << "k = " << k << endl;
     }
 
@@ -376,7 +364,7 @@ void klist_de(G_pointers &p){
 
 
     // // Save to local
-    // std::ifstream file("/home/cheng/DCoreGPU/dataset/CollegeMsg-October/vtx2id.txt");  // 打开文件
+    // std::ifstream file("/home/cheng/DCoreGPU/dataset/my/vtx2id.txt");  // 打开文件
     // unordered_map<int, int> id2vtx;
     // int vtx, id;
     // // 逐行读取数据
@@ -385,11 +373,11 @@ void klist_de(G_pointers &p){
     // }
 
     // for(int k = 0; k < level; k ++){
-        // std::ofstream wr("/home/cheng/DCoreGPU/dataset/CollegeMsg-October/CollegeMsg-October-CoreNumber.txt");
+    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/my/my-"+std::to_string(k)+".txt");
 
-        // for(int v = 0; v < p.num_vtx; v ++){
-        //     wr << id2vtx[v] << " " << resmax[v] << std::endl;
-        // }
+    //     for(int v = 0; v < p.num_vtx; v ++){
+    //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
+    //     }
     // }
     
 }
