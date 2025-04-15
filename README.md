@@ -13,13 +13,17 @@ e.g. dataset/em/em.txt
 make
 
 ## run
-./main -d dataset -a 1(e.g. ./main -d em -a 1)
+./main -d dataset -a 1(e.g. ./main -d em -a 2)
 
 ## algorithm
 
-1. klist
+2. GPU-Peeling (Our proposed GPU peeling-based solution)
 
-2. klist with prune
+4. GPU-H-Index-B (Our proposed GPU h-index-based solution with binary search)
+
+5. GPU-H-Index-L (Our proposed GPU h-index-based solution with linear search)
+
+6. GPU-Trim (Our GPU implementation of baseline [17])
 
 ## profile
 
