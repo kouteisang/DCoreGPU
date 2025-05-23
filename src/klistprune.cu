@@ -1,9 +1,5 @@
 #include "klistprune.cuh"
 
-
-
-
-
 __global__ void klistprune_scan_level(int* t_in_deg, int num_vtx, int* global_buffer, int* buf_count, int level){
 
     // printf("%d\n", p.num_vtx);
@@ -404,7 +400,18 @@ void klistprune_de(G_pointers &p){
         chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
         level ++;
     }
-    chkerr(cudaMemcpy(core0, p.t_in_deg, sizeof(int)*p.num_vtx, cudaMemcpyDeviceToDevice));     
+    chkerr(cudaMemcpy(core0, p.t_in_deg, sizeof(int)*p.num_vtx, cudaMemcpyDeviceToDevice));   
+    
+    // int* tcore0 = new int[p.num_vtx];
+    // chkerr(cudaMemcpy(tcore0, core0, sizeof(int)*p.num_vtx, cudaMemcpyDeviceToHost));   
+  
+    // std::ofstream wr("/home/cheng/DCoreGPU/dataset/em/kcore.txt");
+
+    // for(int v = 0; v < p.num_vtx; v ++){
+    //     wr << tcore0[v] << std::endl;
+    // }
+    
+
 
 
     cout << "level = " << level-1 << endl;

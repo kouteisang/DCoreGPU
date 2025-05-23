@@ -5,6 +5,7 @@
 #include "./src/klistanchorbinaryprune.cuh"
 #include "./src/klistanchorsequenceprune.cuh"
 #include "./src/gpubaseline.cuh"
+#include "./src/klist_balance.cuh"
 
 enum Algorithm{
     klist = 1,
@@ -12,7 +13,8 @@ enum Algorithm{
     klistanchorbinary = 3,
     klistanchorbinaryprune = 4,
     klistanchorsequenceprune = 5,
-    gpubaseline = 6, 
+    klist_balance = 6,
+    gpubaseline = 7, 
 };
 
 int main(int argc, char* argv[]){
@@ -33,7 +35,7 @@ int main(int argc, char* argv[]){
 
     cout << "dataset = " << dataset << endl;
 
-     cudaEvent_t start, stop; // Calculate time
+    cudaEvent_t start, stop; // Calculate time
     cudaEventCreate(&start); // Calculate time
     cudaEventCreate(&stop);  // Calculate time
 
@@ -73,6 +75,10 @@ int main(int argc, char* argv[]){
         case Algorithm::klistanchorsequenceprune:
             cout << "Algorithm = klistanchorsequenceprune" << endl;
             klistanchorsequenceprune_de(data_pointers);
+            break;
+        case Algorithm::klist_balance:
+            cout << "Algorithm = klist balanced" << endl;
+            klist_balance_de(data_pointers);
             break;
         case Algorithm::gpubaseline:
             cout << "Algorithm = gpubaseline" << endl;

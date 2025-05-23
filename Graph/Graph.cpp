@@ -1,3 +1,4 @@
+
 #include "Graph.h"
 
 Graph::Graph(/* args */){
@@ -144,8 +145,10 @@ Graph::Graph(string file, string dataset){
         }
     }
 
-    // for(uint v = 0; v < nn; v ++){
-    //     cout << "v =" << vtx2id[v] << " in = " << h_in_deg[v] << " out = " << h_out_deg[v] << endl;
-    // }
+//    std::ofstream wr("/home/cheng/DCoreGPU/dataset/enwiki-2024/degree.txt");
+
+//     for(uint v = 0; v < num_vtx; v ++){
+//         wr << h_in_deg[v] << " " << h_out_deg[v] << endl;
+//     }
 
 }
