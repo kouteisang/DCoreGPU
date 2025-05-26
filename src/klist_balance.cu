@@ -3,18 +3,17 @@
 
 
 // __global__ void reset_count_buffers(
-//     int* count_out_s, int* count_out_m
-//     int* count_in_s,  int* count_in_m,
-//     int size  // 一般是 BLK_NUMS
-// ) {
+//     int* count_out_s, int* count_out_m,
+//     int* count_in_s, int* count_in_m,
+//     int num_items)
+// {
 //     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-//     if (tid < size) {
-//         count_out_s[tid] = 0;
-//         count_out_m[tid] = 0;
+//     if (tid >= num_items) return;
 
-//         count_in_s[tid]  = 0;
-//         count_in_m[tid]  = 0;
-//     }
+//     count_out_s[tid] = 0;
+//     count_out_m[tid] = 0;
+//     count_in_s[tid] = 0;
+//     count_in_m[tid] = 0;
 // }
 
 // Please do not modift the following, they are correct
@@ -873,6 +872,29 @@ __global__ void reduceMinkernel_balance(int* in_count_num, int* d_min, int num_v
     }
 }
 
+
+
+// __global__ void update_change_status_out_thread(int* out_buffer_s, int* count_out_s, int* hindex_in, int* hindex_out, int* core, int* out_adj, int* out_offset, int* change, int* core0, int k, int * global_done){
+//      __shared__ int start, end;
+//     __shared__ int* t_global_buffer;
+
+
+//      if(threadIdx.x == 0){
+//         t_global_buffer = out_buffer_s + blockIdx.x * BUFFER_SIZE;
+//         start = 0;
+//         end = count_out_s[blockIdx.x]; // The end position of the buffer
+//         assert(t_global_buffer!=NULL);
+//     } 
+//     __syncthreads();
+
+//     for(int vid = threadIdx.x; vid < end; vid += BLK_DIM){
+        
+//         int v = t_global_buffer[vid];
+//         int offset_start = out_offset[v]; // offset of v
+//         int offset_end = out_offset[v+1]; // offset of v
+//     }
+// }
+
 void klist_balance_de(G_pointers &p){
 
 
@@ -1023,11 +1045,11 @@ void klist_balance_de(G_pointers &p){
                 cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS); // buf count  checked
 
                 cudaMemset(count_out_s, 0, sizeof(int) * BLK_NUMS); 
-                cudaMemset(count_out_m, 0, sizeof(int) * BLK_NUMS); 
-                cudaMemset(count_out_l, 0, sizeof(int) * 1); 
-
+                cudaMemset(count_out_m, 0, sizeof(int) * BLK_NUMS);
                 cudaMemset(count_in_s, 0, sizeof(int) * BLK_NUMS);
                 cudaMemset(count_in_m, 0, sizeof(int) * BLK_NUMS);
+                 
+                cudaMemset(count_out_l, 0, sizeof(int) * 1); 
                 cudaMemset(count_in_l, 0, sizeof(int) * 1);
 
                 vertex_to_buffer<<<BLK_NUMS, BLK_DIM>>>(p.num_vtx, global_buffer, buf_count, p.visit);
@@ -1045,6 +1067,10 @@ void klist_balance_de(G_pointers &p){
                 hin_calculate_block<<<BLK_NUMS, BLK_DIM>>>(in_buffer_l, count_in_l, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
     
                 update_change_status<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, p.out_adj, p.out_offset, change, core0, k, global_done);
+                // update_change_status_out_thread<<<BLK_NUMS, BLK_DIM>>>(out_buffer_s, count_out_s, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, change, core0, k, global_done);
+                // update_change_status_out_warp<<<BLK_NUMS, BLK_DIM>>>(out_buffer_m, count_out_m, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, change, core0, k, global_done);
+                // update_change_status_out_block<<<BLK_NUMS, BLK_DIM>>>(out_buffer_l, count_out_l, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, change, core0, k, global_done);
+                
 
                 update_upper_by_visit<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core);
 
