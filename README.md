@@ -27,7 +27,7 @@ make
 
 ## profile
 
-nsys profile --stats=true  ./main -d enwiki-2024 -a 5
+nsys profile --stats=true  ./main -d enwiki-2024 -a 6
 
 
 
