@@ -19,6 +19,11 @@ enum Algorithm{
     gpubaseline = 8, 
 };
 
+bool file_exists(const std::string& name) {
+    std::ifstream f(name);
+    return f.good();
+}
+
 int main(int argc, char* argv[]){
 
     cudaSetDevice(0);
@@ -44,15 +49,19 @@ int main(int argc, char* argv[]){
 
     string file_path = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/";
 
-    Graph g = Graph(file_path, dataset);
+    std::string bin_file = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/" + dataset+  ".bin";
 
+    Graph g = file_exists(bin_file) ?
+          Graph(bin_file) :
+          Graph(file_path, dataset);
+
+    // Graph g = Graph(file_path, dataset);
     int num_vtx = g.get_num_vtx();
     ll num_edge = g.get_num_edge();
 
     G_pointers data_pointers;
     
     malloc_graph_gpu_memory(g, data_pointers);
-
     gpu_data_init(data_pointers);
 
     cudaEventRecord(start, 0);

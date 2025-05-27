@@ -366,13 +366,12 @@ __global__ void vertex_to_buffer_by_in_degree(int* visit, int num_vtx, int k, in
 
 __global__ void hout_calculate_thread(int* out_buffer_s, int* count_out_s, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k, int* visit){
 
-    __shared__ int start, end;
+    __shared__ int end;
     __shared__ int* t_global_buffer;
 
 
      if(threadIdx.x == 0){
         t_global_buffer = out_buffer_s + blockIdx.x * BUFFER_SIZE;
-        start = 0;
         end = count_out_s[blockIdx.x]; // The end position of the buffer
         assert(t_global_buffer!=NULL);
     } 
@@ -406,13 +405,13 @@ __global__ void hout_calculate_thread(int* out_buffer_s, int* count_out_s, int* 
 
 __global__ void hin_calculate_thread(int* in_buffer_s, int* count_in_s, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out, int* visit){
 
-    __shared__ int start, end;
+    __shared__ int end;
     __shared__ int* t_global_buffer;
 
 
      if(threadIdx.x == 0){
         t_global_buffer = in_buffer_s + blockIdx.x * BUFFER_SIZE;
-        start = 0;
+
         end = count_in_s[blockIdx.x]; // The end position of the buffer
         assert(t_global_buffer!=NULL);
     } 
@@ -598,8 +597,6 @@ __global__ void hin_calculate_warp(int* in_buffer_m, int* count_in_m, int* upper
 
 __global__ void hout_calculate_block(int* out_buffer_l, int* count_out_l, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k, int* visit){
   
-    __shared__ int start, end;
-    __shared__ int* t_global_buffer;
     __shared__ int warp_counts[BLK_DIM/WARP_SIZE]; 
     __shared__ int final_count; 
     __shared__ int res_shared;
@@ -656,8 +653,6 @@ __global__ void hout_calculate_block(int* out_buffer_l, int* count_out_l, int* u
 
 __global__ void hin_calculate_block(int* in_buffer_l, int* count_in_l, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out, int* visit){
   
-    __shared__ int start, end;
-    __shared__ int* t_global_buffer;
     __shared__ int warp_counts[BLK_DIM/WARP_SIZE]; 
     __shared__ int final_count; 
     __shared__ int res_shared;

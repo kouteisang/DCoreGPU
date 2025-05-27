@@ -15,6 +15,57 @@ Graph::~Graph(){
 
 }
 
+Graph::Graph(const std::string& bin_file) {
+    std::cout << bin_file << std::endl;    
+    std::cout << "Read graph binary file" << std::endl;
+    FILE* f = fopen(bin_file.c_str(), "rb");
+    assert(f);
+
+    fread(&num_vtx, sizeof(int), 1, f);
+    fread(&num_edge, sizeof(long long), 1, f);
+
+    h_in_deg = new int[num_vtx];
+    h_out_deg = new int[num_vtx];
+
+    h_in_offset = new int[num_vtx + 1];
+    h_out_offset = new int[num_vtx + 1];
+
+    h_in_adj = new int[num_edge];
+    h_out_adj = new int[num_edge];
+
+    fread(h_in_deg, sizeof(int), num_vtx, f);
+    fread(h_out_deg, sizeof(int), num_vtx, f);
+
+    fread(h_in_offset, sizeof(int), num_vtx + 1, f);
+    fread(h_out_offset, sizeof(int), num_vtx + 1, f);
+
+    fread(h_in_adj, sizeof(int), num_edge, f);
+    fread(h_out_adj, sizeof(int), num_edge, f);
+
+    fclose(f);
+}
+
+
+void Graph::SaveToBinary(const std::string& bin_file) {
+    FILE* f = fopen(bin_file.c_str(), "wb");
+    assert(f);
+
+    fwrite(&num_vtx, sizeof(int), 1, f);
+    fwrite(&num_edge, sizeof(long long), 1, f);
+
+    fwrite(h_in_deg, sizeof(int), num_vtx, f);
+    fwrite(h_out_deg, sizeof(int), num_vtx, f);
+
+    fwrite(h_in_offset, sizeof(int), num_vtx + 1, f);
+    fwrite(h_out_offset, sizeof(int), num_vtx + 1, f);
+
+    fwrite(h_in_adj, sizeof(int), num_edge, f);
+    fwrite(h_out_adj, sizeof(int), num_edge, f);
+
+    fclose(f);
+}
+
+
 void Graph::GetVtxMapping(string file_path, string map_file, std::basic_ofstream<char> &map_file_out){
 
     int nn;
@@ -54,6 +105,7 @@ void Graph::GetVtxMapping(string file_path, string map_file, std::basic_ofstream
 
 Graph::Graph(string file, string dataset){
 
+    std::cout << "Construct graph" << std::endl;
     int nn;
     int uid, vid;
 
@@ -144,6 +196,8 @@ Graph::Graph(string file, string dataset){
             h_out_adj[e ++] = u;
         }
     }
+
+    SaveToBinary(file + dataset + ".bin");
 
 //    std::ofstream wr("/home/cheng/DCoreGPU/dataset/enwiki-2024/degree.txt");
 

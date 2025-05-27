@@ -22,9 +22,14 @@ private:
 public:
     Graph(/* args */);
     Graph(string file, string dataset);
+    Graph(const std::string& bin_file);
+
     ~Graph();
 
     void GetVtxMapping(string file_path, string map_file, std::basic_ofstream<char> &map_file_out);
+    
+    void SaveToBinary(const std::string& bin_file);
+
 
     int get_num_vtx(){
         return num_vtx;
