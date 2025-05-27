@@ -6,6 +6,7 @@
 #include "./src/klistanchorsequenceprune.cuh"
 #include "./src/gpubaseline.cuh"
 #include "./src/klist_balance.cuh"
+#include "./src/klist_balance_buffer.cuh"
 
 enum Algorithm{
     klist = 1,
@@ -14,7 +15,8 @@ enum Algorithm{
     klistanchorbinaryprune = 4,
     klistanchorsequenceprune = 5,
     klist_balance = 6,
-    gpubaseline = 7, 
+    klist_balance_buffer = 7,
+    gpubaseline = 8, 
 };
 
 int main(int argc, char* argv[]){
@@ -79,6 +81,10 @@ int main(int argc, char* argv[]){
         case Algorithm::klist_balance:
             cout << "Algorithm = klist balanced" << endl;
             klist_balance_de(data_pointers);
+            break;
+        case Algorithm::klist_balance_buffer:
+            cout << "Algorithm = klist balanced buffer" << endl;
+            klist_balance_buffer_de(data_pointers);
             break;
         case Algorithm::gpubaseline:
             cout << "Algorithm = gpubaseline" << endl;
