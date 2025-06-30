@@ -78,19 +78,6 @@ Ensure that the name of the dataset folder matches the name of the .txt file.
 e.g. dataset/em/em.txt
 
 
-
-
-
-## algorithm
-
-2. GPU-Peeling (Our proposed GPU peeling-based solution)
-
-4. GPU-H-Index-B (Our proposed GPU h-index-based solution with binary search)
-
-5. GPU-H-Index-L (Our proposed GPU h-index-based solution with linear search)
-
-6. GPU-Trim (Our GPU implementation of baseline [17])
-
 ## profile
 
 nsys profile --stats=true  ./main -d {dataset} -a {algorithm id}
