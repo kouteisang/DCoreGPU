@@ -1,4 +1,4 @@
-#include "klist_balance.cuh"
+#include "klist_balance_buffer_one_stream.cuh"
 // #define write_to_host
 
 
@@ -17,13 +17,13 @@
 // }
 
 // Please do not modift the following, they are correct
-__device__ int warp_reduce_sum_balance_buffer(int val) {
+__device__ int warp_reduce_sum_balance_buffer_one_stream(int val) {
     for (int offset = 16; offset > 0; offset /= 2)
         val += __shfl_down_sync(0xffffffff, val, offset);
     return val;
 }
 
-__global__ void kmax_scan_balance_buffer(int* t_in_deg, int num_vtx, int* global_buffer, int* buf_count, int level){
+__global__ void kmax_scan_balance_buffer_one_stream(int* t_in_deg, int num_vtx, int* global_buffer, int* buf_count, int level){
 
     // printf("%d\n", p.num_vtx);
     __shared__ int* t_global_buffer;
@@ -50,7 +50,7 @@ __global__ void kmax_scan_balance_buffer(int* t_in_deg, int num_vtx, int* global
     }
 }
 
-__global__ void kmax_update_balance_buffer(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* t_out_deg, int* out_offset, int *out_adj, int level){
+__global__ void kmax_update_balance_buffer_one_stream(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* t_out_deg, int* out_offset, int *out_adj, int level){
     
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -110,17 +110,16 @@ __global__ void kmax_update_balance_buffer(int* global_buffer, int* buf_count, i
 
 }
 
-__global__ void b_kstatus_update_balance_buffer(int* t_in_deg, bool* kstatus, int num_vtx){
+__global__ void b_kstatus_update_balance_buffer_one_stream(int* t_in_deg, bool* kstatus, int num_vtx){
 
     int tid = blockDim.x * blockIdx.x + threadIdx.x; 
     for(int v = tid; v < num_vtx; v += BLK_DIM * BLK_NUMS){
         kstatus[t_in_deg[v]] = true;
-        // atomicOr((unsigned int*)&kstatus[t_in_deg[v]], 1);
     }
 
 }
 
-__global__ void scan_phase_balance_buffer(int* t_in_deg, int *t_out_deg, int* visit, int num_vtx, int* global_buffer, int* buf_count, int k, int l, int* core){
+__global__ void scan_phase_balance_buffer_one_stream(int* t_in_deg, int *t_out_deg, int* visit, int num_vtx, int* global_buffer, int* buf_count, int k, int l, int* core){
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int sh_buf_count;
@@ -155,7 +154,7 @@ __global__ void scan_phase_balance_buffer(int* t_in_deg, int *t_out_deg, int* vi
 
 }
 
-__global__ void update_phase_balance_buffer(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* in_adj, int* in_offset, int* t_out_deg, int* out_adj, int* out_offset, int* visit, int k, int l, int* core){
+__global__ void update_phase_balance_buffer_one_stream(int* global_buffer, int* buf_count, int* global_count, int* t_in_deg, int* in_adj, int* in_offset, int* t_out_deg, int* out_adj, int* out_offset, int* visit, int k, int l, int* core){
         
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -231,7 +230,7 @@ __global__ void update_phase_balance_buffer(int* global_buffer, int* buf_count, 
 }
 // Please do not modify the above, they are correct
 
-__global__ void update_visit_by_core0_balance_buffer(int* core0, int* visit, int num_vtx, int k, int* core, int* in_count_number){
+__global__ void update_visit_by_core0_balance_buffer_one_stream(int* core0, int* visit, int num_vtx, int k, int* core, int* in_count_number){
      
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -245,7 +244,7 @@ __global__ void update_visit_by_core0_balance_buffer(int* core0, int* visit, int
 }
 
 
-__global__ void vertex_to_buffer_buffer(int num_vtx, int* global_buffer, int* buf_count, int* visit){
+__global__ void vertex_to_buffer_buffer_one_stream(int num_vtx, int* global_buffer, int* buf_count, int* visit){
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int sh_buf_count;
@@ -272,7 +271,7 @@ __global__ void vertex_to_buffer_buffer(int num_vtx, int* global_buffer, int* bu
 }
 
 
-__global__ void vertex_to_buffer_by_out_degree_buffer(int* visit, int num_vtx, int k, int* core, int* out_degree, 
+__global__ void vertex_to_buffer_by_out_degree_buffer_one_stream(int* visit, int num_vtx, int k, int* core, int* out_degree, 
     int* out_buffer_s, int* out_buffer_m, int* out_buffer_l, 
     int* count_out_s, int* count_out_m, int* count_out_l, int* global_buffer, int* buf_count){
 
@@ -324,7 +323,7 @@ __global__ void vertex_to_buffer_by_out_degree_buffer(int* visit, int num_vtx, i
 }
 
 
-__global__ void vertex_to_buffer_by_in_degree_buffer(int* visit, int num_vtx, int k, int* core, int* in_degree, 
+__global__ void vertex_to_buffer_by_in_degree_buffer_one_stream(int* visit, int num_vtx, int k, int* core, int* in_degree, 
     int* in_buffer_s, int* in_buffer_m, int* in_buffer_l, 
     int* count_in_s, int* count_in_m, int* count_in_l, int* global_buffer, int* buf_count){
 
@@ -378,7 +377,7 @@ __global__ void vertex_to_buffer_by_in_degree_buffer(int* visit, int num_vtx, in
 
 
 
-__global__ void hout_calculate_thread_buffer(int* out_buffer_s, int* count_out_s, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
+__global__ void hout_calculate_thread_buffer_one_stream(int* out_buffer_s, int* count_out_s, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
 
     __shared__ int end;
     __shared__ int* t_global_buffer;
@@ -416,7 +415,7 @@ __global__ void hout_calculate_thread_buffer(int* out_buffer_s, int* count_out_s
 
 }
 
-__global__ void hin_calculate_thread_buffer(int* in_buffer_s, int* count_in_s, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
+__global__ void hin_calculate_thread_buffer_one_stream(int* in_buffer_s, int* count_in_s, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
 
     __shared__ int end;
     __shared__ int* t_global_buffer;
@@ -454,7 +453,7 @@ __global__ void hin_calculate_thread_buffer(int* in_buffer_s, int* count_in_s, i
 
 }
 
-__global__ void hout_calculate_warp_buffer(int* out_buffer_m, int* count_out_m, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
+__global__ void hout_calculate_warp_buffer_one_stream(int* out_buffer_m, int* count_out_m, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
   
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -512,7 +511,7 @@ __global__ void hout_calculate_warp_buffer(int* out_buffer_m, int* count_out_m, 
 
             __syncwarp();
 
-            int warp_total = warp_reduce_sum_balance_buffer(local_count);
+            int warp_total = warp_reduce_sum_balance_buffer_one_stream(local_count);
 
 
             if(lane_id == 0){
@@ -531,8 +530,7 @@ __global__ void hout_calculate_warp_buffer(int* out_buffer_m, int* count_out_m, 
 }
 
 
-
-__global__ void hout_calculate_warp_buffer_shared(int* out_buffer_m, int* count_out_m, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
+__global__ void hout_calculate_warp_buffer_shared_one_stream(int* out_buffer_m, int* count_out_m, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
   
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -599,7 +597,7 @@ __global__ void hout_calculate_warp_buffer_shared(int* out_buffer_m, int* count_
 
             __syncwarp();
 
-            int warp_total = warp_reduce_sum_balance_buffer(local_count);
+            int warp_total = warp_reduce_sum_balance_buffer_one_stream(local_count);
 
 
             if(lane_id == 0){
@@ -618,7 +616,7 @@ __global__ void hout_calculate_warp_buffer_shared(int* out_buffer_m, int* count_
 }
 
 
-__global__ void hin_calculate_warp_buffer(int* in_buffer_m, int* count_in_m, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
+__global__ void hin_calculate_warp_buffer_one_stream(int* in_buffer_m, int* count_in_m, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
    
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -676,7 +674,7 @@ __global__ void hin_calculate_warp_buffer(int* in_buffer_m, int* count_in_m, int
             }
             __syncwarp();
         
-            int warp_total = warp_reduce_sum_balance_buffer(local_count);
+            int warp_total = warp_reduce_sum_balance_buffer_one_stream(local_count);
             if(lane_id == 0){
                 if(warp_total >= k){
                     flag[warp_id] = false;
@@ -694,7 +692,7 @@ __global__ void hin_calculate_warp_buffer(int* in_buffer_m, int* count_in_m, int
 
 
 
-__global__ void hin_calculate_warp_buffer_shared(int* in_buffer_m, int* count_in_m, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
+__global__ void hin_calculate_warp_buffer_shared_one_stream(int* in_buffer_m, int* count_in_m, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
    
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -762,7 +760,7 @@ __global__ void hin_calculate_warp_buffer_shared(int* in_buffer_m, int* count_in
             }
             __syncwarp();
         
-            int warp_total = warp_reduce_sum_balance_buffer(local_count);
+            int warp_total = warp_reduce_sum_balance_buffer_one_stream(local_count);
             if(lane_id == 0){
                 if(warp_total >= k){
                     flag[warp_id] = false;
@@ -779,7 +777,7 @@ __global__ void hin_calculate_warp_buffer_shared(int* in_buffer_m, int* count_in
 }
 
 
-__global__ void hout_calculate_block_buffer(int* out_buffer_l, int* count_out_l, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
+__global__ void hout_calculate_block_buffer_one_stream(int* out_buffer_l, int* count_out_l, int* upper, int* core0, int* hindex_out, int* out_adj, int* out_offset, int k){
   
     __shared__ int warp_counts[BLK_DIM/WARP_SIZE]; 
     __shared__ int final_count; 
@@ -810,7 +808,7 @@ __global__ void hout_calculate_block_buffer(int* out_buffer_l, int* count_out_l,
                 local_count += (core0[u] >= k && upper[u] >= res);
             }
 
-            int warp_sum = warp_reduce_sum_balance_buffer(local_count);
+            int warp_sum = warp_reduce_sum_balance_buffer_one_stream(local_count);
             if (lane_id == 0) warp_counts[warp_id] = warp_sum;
             __syncthreads(); 
 
@@ -834,7 +832,7 @@ __global__ void hout_calculate_block_buffer(int* out_buffer_l, int* count_out_l,
     }
 }
 
-__global__ void hin_calculate_block_buffer(int* in_buffer_l, int* count_in_l, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
+__global__ void hin_calculate_block_buffer_one_stream(int* in_buffer_l, int* count_in_l, int* upper, int* core0, int* hindex_in, int* in_adj, int* in_offset, int k, int* hindex_out){
   
     __shared__ int warp_counts[BLK_DIM/WARP_SIZE]; 
     __shared__ int final_count; 
@@ -863,7 +861,7 @@ __global__ void hin_calculate_block_buffer(int* in_buffer_l, int* count_in_l, in
                 local_count += (core0[u] >= k && upper[u] >= res);
             }
 
-            int warp_sum = warp_reduce_sum_balance_buffer(local_count);
+            int warp_sum = warp_reduce_sum_balance_buffer_one_stream(local_count);
             if (lane_id == 0) warp_counts[warp_id] = warp_sum;
             __syncthreads(); 
 
@@ -887,7 +885,7 @@ __global__ void hin_calculate_block_buffer(int* in_buffer_l, int* count_in_l, in
 }
 
 
-__global__ void update_change_status_buffer(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* upper, int* in_adj, int* in_offset, int* out_adj, int* out_offset, int* change, int* core0, int k, int* global_done){
+__global__ void update_change_status_buffer_one_stream(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* upper, int* in_adj, int* in_offset, int* out_adj, int* out_offset, int* change, int* core0, int k, int* global_done){
 
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -970,7 +968,7 @@ __global__ void update_change_status_buffer(int* global_buffer, int* buf_count, 
 }
 
 
-__global__ void update_upper_by_visit_buffer(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* core){
+__global__ void update_upper_by_visit_buffer_one_stream(int* global_buffer, int* buf_count, int* hindex_in, int* hindex_out, int* core){
 
     __shared__ int end;
     __shared__ int* t_global_buffer;
@@ -992,7 +990,7 @@ __global__ void update_upper_by_visit_buffer(int* global_buffer, int* buf_count,
 }
 
 
-__global__ void check_innb_cpunt_balance_buffer(int* in_count_num, int* core, int* core0, int num_vtx, int* in_offset, int* in_adj, int k){
+__global__ void check_innb_cpunt_balance_buffer_one_stream(int* in_count_num, int* core, int* core0, int num_vtx, int* in_offset, int* in_adj, int k){
     
 
     int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1015,21 +1013,21 @@ __global__ void check_innb_cpunt_balance_buffer(int* in_count_num, int* core, in
                 cnt += (core[u] >= core_v && core0[u] >= k);
             }
 
-            int warp_total = warp_reduce_sum_balance_buffer(cnt);
+            int warp_total = warp_reduce_sum_balance_buffer_one_stream(cnt);
             if (lane_id == 0) in_count_num[v] = warp_total;
         }
 
 } 
 
 
-__device__ int warpReduceMin_balance_buffer(int val) {
+__device__ int warpReduceMin_balance_buffer_one_stream(int val) {
     // 使用 warp-level shuffle 归约最小值
     for (int offset = 16; offset > 0; offset /= 2)
         val = min(val, __shfl_down_sync(0xFFFFFFFF, val, offset));
     return val;
 }
 
-__global__ void reduceMinkernel_balance_buffer(int* in_count_num, int* d_min, int num_vtx){
+__global__ void reduceMinkernel_balance_buffer_one_stream(int* in_count_num, int* d_min, int num_vtx){
     __shared__ float sharedMin[256/32];  
 
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -1037,7 +1035,7 @@ __global__ void reduceMinkernel_balance_buffer(int* in_count_num, int* d_min, in
 
     int min_val = (tid < num_vtx) ? in_count_num[tid] : INT_MAX;
 
-    min_val = warpReduceMin_balance_buffer(min_val);
+    min_val = warpReduceMin_balance_buffer_one_stream(min_val);
     
     if (local_tid % WARP_SIZE == 0) {
         sharedMin[local_tid / WARP_SIZE] = min_val;
@@ -1048,7 +1046,7 @@ __global__ void reduceMinkernel_balance_buffer(int* in_count_num, int* d_min, in
      // 线程 0 进一步归约共享内存中的最小值
     if (local_tid < WARP_SIZE) {
         int blockMin = (local_tid < 256 / WARP_SIZE) ? sharedMin[local_tid] : INT_MAX;
-        blockMin = warpReduceMin_balance_buffer(blockMin);
+        blockMin = warpReduceMin_balance_buffer_one_stream(blockMin);
         if (local_tid == 0) {
             atomicMin(d_min, blockMin);  // 用原子操作更新全局最小值
         }
@@ -1057,7 +1055,7 @@ __global__ void reduceMinkernel_balance_buffer(int* in_count_num, int* d_min, in
 
 
 
-__global__ void update_change_status_out_thread(int* out_buffer_s, int* count_out_s, int* hindex_in, int* hindex_out, int* core, int* out_adj, int* out_offset, int* core0, int k, int * global_done, int* visit){
+__global__ void update_change_status_out_thread_one_stream(int* out_buffer_s, int* count_out_s, int* hindex_in, int* hindex_out, int* core, int* out_adj, int* out_offset, int* core0, int k, int * global_done, int* visit){
     
     __shared__ int end;
     __shared__ int* t_global_buffer;
@@ -1096,7 +1094,7 @@ __global__ void update_change_status_out_thread(int* out_buffer_s, int* count_ou
 }
 
 
-__global__ void update_change_status_in_thread(int* in_buffer_s, int* count_in_s, int* hindex_in, int* hindex_out, int* core, int* in_adj, int* in_offset, int* core0, int k, int * global_done, int* visit){
+__global__ void update_change_status_in_thread_one_stream(int* in_buffer_s, int* count_in_s, int* hindex_in, int* hindex_out, int* core, int* in_adj, int* in_offset, int* core0, int k, int * global_done, int* visit){
     
     __shared__ int end;
     __shared__ int* t_global_buffer;
@@ -1135,7 +1133,7 @@ __global__ void update_change_status_in_thread(int* in_buffer_s, int* count_in_s
 }
 
 
-__global__ void update_change_status_out_warp(int* out_buffer_m, int* count_out_m, int* hindex_in, int* hindex_out, int* core, int* out_adj, int* out_offset, int* core0, int k, int * global_done, int* visit){
+__global__ void update_change_status_out_warp_one_stream(int* out_buffer_m, int* count_out_m, int* hindex_in, int* hindex_out, int* core, int* out_adj, int* out_offset, int* core0, int k, int * global_done, int* visit){
     
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -1197,7 +1195,7 @@ __global__ void update_change_status_out_warp(int* out_buffer_m, int* count_out_
 }
 
 
-__global__ void update_change_status_in_warp(int* in_buffer_m, int* count_in_m, int* hindex_in, int* hindex_out, int* core, int* in_adj, int* in_offset, int* core0, int k, int * global_done, int* visit){
+__global__ void update_change_status_in_warp_one_stream(int* in_buffer_m, int* count_in_m, int* hindex_in, int* hindex_out, int* core, int* in_adj, int* in_offset, int* core0, int k, int * global_done, int* visit){
     
     __shared__ int start, end;
     __shared__ int* t_global_buffer;
@@ -1260,7 +1258,7 @@ __global__ void update_change_status_in_warp(int* in_buffer_m, int* count_in_m, 
 }
 
 
-__global__ void update_change_status_out_block(int* out_buffer_l, int* count_out_l, int* hindex_in, int* hindex_out, int* core, int* out_adj, int* out_offset, int* core0, int k, int * global_done, int* visit){
+__global__ void update_change_status_out_block_one_stream(int* out_buffer_l, int* count_out_l, int* hindex_in, int* hindex_out, int* core, int* out_adj, int* out_offset, int* core0, int k, int * global_done, int* visit){
 
     int total = count_out_l[0];
 
@@ -1287,7 +1285,7 @@ __global__ void update_change_status_out_block(int* out_buffer_l, int* count_out
 }
 
 
-__global__ void update_change_status_in_block(int* in_buffer_l, int* count_in_l, int* hindex_in, int* hindex_out, int* core, int* in_adj, int* in_offset, int* core0, int k, int * global_done, int* visit){
+__global__ void update_change_status_in_block_one_stream(int* in_buffer_l, int* count_in_l, int* hindex_in, int* hindex_out, int* core, int* in_adj, int* in_offset, int* core0, int k, int * global_done, int* visit){
     
 
     int total = count_in_l[0];
@@ -1314,7 +1312,7 @@ __global__ void update_change_status_in_block(int* in_buffer_l, int* count_in_l,
 }
 
 
-__global__ void update_upper_by_out_buffer_s(int* out_buffer_s, int* count_out_s, int* hindex_in, int* hindex_out, int* core){
+__global__ void update_upper_by_out_buffer_s_one_stream(int* out_buffer_s, int* count_out_s, int* hindex_in, int* hindex_out, int* core){
     __shared__ int end;
     __shared__ int* t_global_buffer;
 
@@ -1332,7 +1330,7 @@ __global__ void update_upper_by_out_buffer_s(int* out_buffer_s, int* count_out_s
     }
 }
 
-__global__ void update_upper_by_out_buffer_m(int* out_buffer_m, int* count_out_m, int* hindex_in, int* hindex_out, int* core){
+__global__ void update_upper_by_out_buffer_m_one_stream(int* out_buffer_m, int* count_out_m, int* hindex_in, int* hindex_out, int* core){
 
     __shared__ int end;
     __shared__ int* t_global_buffer;
@@ -1353,7 +1351,7 @@ __global__ void update_upper_by_out_buffer_m(int* out_buffer_m, int* count_out_m
     
 }
 
-__global__ void update_upper_by_out_buffer_l(int* out_buffer_l, int* count_out_l, int* hindex_in, int* hindex_out, int* core){
+__global__ void update_upper_by_out_buffer_l_one_stream(int* out_buffer_l, int* count_out_l, int* hindex_in, int* hindex_out, int* core){
     
     int total = count_out_l[0];
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1365,7 +1363,7 @@ __global__ void update_upper_by_out_buffer_l(int* out_buffer_l, int* count_out_l
 }
 
 
-__global__ void hin_count_thread_buffer(int* in_count_num, int* in_buffer_s, int* count_in_s, int* core, int* core0, int* in_adj, int* in_offset, int k){
+__global__ void hin_count_thread_buffer_one_stream(int* in_count_num, int* in_buffer_s, int* count_in_s, int* core, int* core0, int* in_adj, int* in_offset, int k){
 
     __shared__ int end;
     __shared__ int* t_global_buffer;
@@ -1398,7 +1396,7 @@ __global__ void hin_count_thread_buffer(int* in_count_num, int* in_buffer_s, int
 }
 
 
-__global__ void hin_count_warp_buffer(int* in_count_num, int* in_buffer_m, int* count_in_m, int* core, int* core0, int* in_adj, int* in_offset, int k){
+__global__ void hin_count_warp_buffer_one_stream(int* in_count_num, int* in_buffer_m, int* count_in_m, int* core, int* core0, int* in_adj, int* in_offset, int k){
     
 
     int warp_per_block = blockDim.x / WARP_SIZE;
@@ -1442,7 +1440,7 @@ __global__ void hin_count_warp_buffer(int* in_count_num, int* in_buffer_m, int* 
             local_count += (core0[u] >= k && core[u] >= core_v);
         }
         __syncwarp();
-        int warp_total = warp_reduce_sum_balance_buffer(local_count);
+        int warp_total = warp_reduce_sum_balance_buffer_one_stream(local_count);
             
         if(lane_id == 0){
             in_count_num[v] = warp_total;
@@ -1452,7 +1450,7 @@ __global__ void hin_count_warp_buffer(int* in_count_num, int* in_buffer_m, int* 
 } 
 
 
-__global__ void hin_count_block_buffer(int* in_count_num, int* in_buffer_l, int* count_in_l, int* core, int* core0, int* in_adj, int* in_offset, int k){
+__global__ void hin_count_block_buffer_one_stream(int* in_count_num, int* in_buffer_l, int* count_in_l, int* core, int* core0, int* in_adj, int* in_offset, int k){
     
 
     __shared__ int warp_counts[BLK_DIM/WARP_SIZE]; 
@@ -1479,7 +1477,7 @@ __global__ void hin_count_block_buffer(int* in_count_num, int* in_buffer_l, int*
             local_count += (core0[u] >= k && core[u] >= core_v);
         }
 
-        int warp_sum = warp_reduce_sum_balance_buffer(local_count);
+        int warp_sum = warp_reduce_sum_balance_buffer_one_stream(local_count);
         if (lane_id == 0) warp_counts[warp_id] = warp_sum;
         __syncthreads(); 
 
@@ -1496,7 +1494,7 @@ __global__ void hin_count_block_buffer(int* in_count_num, int* in_buffer_l, int*
 
 
 
-__global__ void vertex_to_buffer_by_core0_buffer(int k, int* core0, int* in_degree, 
+__global__ void vertex_to_buffer_by_core0_buffer_one_stream(int k, int* core0, int* in_degree, 
     int* in_buffer_s, int* in_buffer_m, int* in_buffer_l, 
     int* count_in_s, int* count_in_m, int* count_in_l, int* global_buffer, int* buf_count){
 
@@ -1549,7 +1547,7 @@ __global__ void vertex_to_buffer_by_core0_buffer(int k, int* core0, int* in_degr
 }
 
 
-void klist_balance_buffer_de(G_pointers &p){
+void klist_balance_buffer_de_one_stream(G_pointers &p){
 
 
     int iterationh = 0;
@@ -1574,8 +1572,8 @@ void klist_balance_buffer_de(G_pointers &p){
 
     while(count < p.num_vtx){
         cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
-        kmax_scan_balance_buffer<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.num_vtx, global_buffer, buf_count, kmax);
-        kmax_update_balance_buffer<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.t_out_deg, p.out_offset, p.out_adj, kmax); 
+        kmax_scan_balance_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.num_vtx, global_buffer, buf_count, kmax);
+        kmax_update_balance_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.t_out_deg, p.out_offset, p.out_adj, kmax); 
         chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));
         kmax ++;
     }
@@ -1587,7 +1585,7 @@ void klist_balance_buffer_de(G_pointers &p){
     bool* kstatus;
     chkerr(cudaMalloc(&kstatus, kmax * sizeof(bool)));
     bool* h_kstatus = new bool[kmax];
-    b_kstatus_update_balance_buffer<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, kstatus, p.num_vtx);
+    b_kstatus_update_balance_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, kstatus, p.num_vtx);
     chkerr(cudaMemcpy(h_kstatus, kstatus, sizeof(bool)*kmax, cudaMemcpyDeviceToHost));     
 
     vector<int> h_kstatus_v;
@@ -1596,9 +1594,6 @@ void klist_balance_buffer_de(G_pointers &p){
             h_kstatus_v.push_back(i);
         }
     }
-
-    cout << "before  h_kstatus_v len = " << h_kstatus_v.size() << endl;
-
 
     cudaMemset(global_count, 0, sizeof(int));
     int l = 0;
@@ -1656,14 +1651,6 @@ void klist_balance_buffer_de(G_pointers &p){
     cudaMalloc(&in_buffer_m, sizeof(int) * BUFFER_SIZE * BLK_NUMS);
     cudaMalloc(&in_buffer_l, sizeof(int) * p.num_vtx);
     
-    // std::ifstream file("/home/cheng/DCoreGPU/dataset/hollywood-2011/vtx2id.txt");  // 打开文件
-    // unordered_map<int, int> id2vtx;
-    // int vtx, id;
-    // // 逐行读取数据
-    // while (file >> vtx >> id) {
-    //     id2vtx[id] = vtx;
-    // }
-
     #ifdef write_to_host
      std::ifstream file("/home/cheng/DCoreGPU/dataset/em/vtx2id.txt");  // 打开文件
     unordered_map<int, int> id2vtx;
@@ -1678,20 +1665,15 @@ void klist_balance_buffer_de(G_pointers &p){
         res[l] = new int[p.num_vtx];
     }
     #endif
-
-    // int** res = new int*[kmax];
-    // for(int l = 0; l < kmax; l ++){
-    //     res[l] = new int[p.num_vtx];
-    // }
     
         // while(pos <= 1){
-    cudaStream_t stream_in, stream_out;
-    cudaStreamCreate(&stream_in);
-    cudaStreamCreate(&stream_out);
+    // cudaStream_t stream_in, stream_out;
+    // cudaStreamCreate(&stream_in);
+    // cudaStreamCreate(&stream_out);
 
-    cudaEvent_t event_in, event_out;
-    cudaEventCreate(&event_in);
-    cudaEventCreate(&event_out);
+    // cudaEvent_t event_in, event_out;
+    // cudaEventCreate(&event_in);
+    // cudaEventCreate(&event_out);
     
     while(pos < h_kstatus_v_len){
         
@@ -1704,86 +1686,61 @@ void klist_balance_buffer_de(G_pointers &p){
             count = 0;
             l = 0;
             while(count < p.num_vtx){
-                scan_phase_balance_buffer<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l, p.core); // scan to find the invalid vertex
-                update_phase_balance_buffer<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
+                scan_phase_balance_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.t_in_deg, p.t_out_deg, p.visit, p.num_vtx, global_buffer, buf_count, k, l, p.core); // scan to find the invalid vertex
+                update_phase_balance_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, global_count, p.t_in_deg, p.in_adj, p.in_offset, p.t_out_deg, p.out_adj, p.out_offset, p.visit, k, l, p.core);// peel the invalid vertex
                 chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
                 l ++;
                 iterationk ++;
             }
         }else if(pos > 0){
             int done = 1;
-            update_visit_by_core0_balance_buffer<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k, p.core, p.in_count_num); // 这个在while循环外面
+            update_visit_by_core0_balance_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k, p.core, p.in_count_num); // 这个在while循环外面
             cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS); // buf count  checked
-            vertex_to_buffer_buffer<<<BLK_NUMS, BLK_DIM>>>(p.num_vtx, global_buffer, buf_count, p.visit);
+            vertex_to_buffer_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.num_vtx, global_buffer, buf_count, p.visit);
             while(done){
                 
                 iterationh ++;
                 // printf("iteration h = %d\n", iterationh);
-                cudaMemsetAsync(global_done, 0, sizeof(int), stream_out);  
+                cudaMemset(global_done, 0, sizeof(int));  
 
-                cudaMemsetAsync(count_out_s, 0, sizeof(int) * BLK_NUMS, stream_out); 
-                cudaMemsetAsync(count_out_m, 0, sizeof(int) * BLK_NUMS, stream_out); 
-                cudaMemsetAsync(count_out_l, 0, sizeof(int), stream_out);
+                cudaMemset(count_out_s, 0, sizeof(int) * BLK_NUMS); 
+                cudaMemset(count_out_m, 0, sizeof(int) * BLK_NUMS); 
+                cudaMemset(count_out_l, 0, sizeof(int));
 
-                cudaMemsetAsync(count_in_s, 0, sizeof(int) * BLK_NUMS, stream_in); 
-                cudaMemsetAsync(count_in_m, 0, sizeof(int) * BLK_NUMS, stream_in); 
-                cudaMemsetAsync(count_in_l, 0, sizeof(int), stream_in);
+                cudaMemset(count_in_s, 0, sizeof(int) * BLK_NUMS); 
+                cudaMemset(count_in_m, 0, sizeof(int) * BLK_NUMS); 
+                cudaMemset(count_in_l, 0, sizeof(int));
 
                 // out calculation
-                vertex_to_buffer_by_out_degree_buffer<<<BLK_NUMS, BLK_DIM, 0, stream_out>>>(p.visit, p.num_vtx, k, p.core, p.out_deg, out_buffer_s, out_buffer_m, out_buffer_l, count_out_s, count_out_m, count_out_l, global_buffer, buf_count);
-                vertex_to_buffer_by_in_degree_buffer<<<BLK_NUMS, BLK_DIM, 0, stream_in>>>(p.visit, p.num_vtx, k, p.core, p.in_deg, in_buffer_s, in_buffer_m, in_buffer_l, count_in_s, count_in_m, count_in_l, global_buffer, buf_count);
+                vertex_to_buffer_by_out_degree_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.visit, p.num_vtx, k, p.core, p.out_deg, out_buffer_s, out_buffer_m, out_buffer_l, count_out_s, count_out_m, count_out_l, global_buffer, buf_count);
+                vertex_to_buffer_by_in_degree_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.visit, p.num_vtx, k, p.core, p.in_deg, in_buffer_s, in_buffer_m, in_buffer_l, count_in_s, count_in_m, count_in_l, global_buffer, buf_count);
 
-                hout_calculate_thread_buffer<<<BLK_NUMS, BLK_DIM, 0, stream_out>>>(out_buffer_s, count_out_s, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
-                hout_calculate_warp_buffer<<<BLK_NUMS, BLK_DIM, 0, stream_out>>>(out_buffer_m, count_out_m, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
-                // hout_calculate_warp_buffer_shared<<<BLK_NUMS, 256, 0, stream_out>>>(out_buffer_m, count_out_m, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
-                hout_calculate_block_buffer<<<BLK_NUMS, BLK_DIM, 0, stream_out>>>(out_buffer_l, count_out_l, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
+                hout_calculate_thread_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_s, count_out_s, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
+                hout_calculate_warp_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_m, count_out_m, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
+                hout_calculate_block_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_l, count_out_l, p.core, core0, hindex_out, p.out_adj, p.out_offset, k);
                 
                 // in calculation
-                hin_calculate_thread_buffer<<<BLK_NUMS, BLK_DIM, 0, stream_in>>>(in_buffer_s, count_in_s, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
-                hin_calculate_warp_buffer<<<BLK_NUMS, BLK_DIM, 0, stream_in>>>(in_buffer_m, count_in_m, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
-                // hin_calculate_warp_buffer_shared<<<BLK_NUMS, 256, 0, stream_in>>>(in_buffer_m, count_in_m, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
-                hin_calculate_block_buffer<<<BLK_NUMS, BLK_DIM, 0, stream_in>>>(in_buffer_l, count_in_l, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
+                hin_calculate_thread_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(in_buffer_s, count_in_s, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
+                hin_calculate_warp_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(in_buffer_m, count_in_m, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
+                hin_calculate_block_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(in_buffer_l, count_in_l, p.core, core0, hindex_in, p.in_adj, p.in_offset, k, hindex_out);
     
-                cudaMemsetAsync(p.visit, 0, sizeof(int) * p.num_vtx, stream_in); 
-                
-                cudaEventRecord(event_in, stream_in);
-                cudaEventRecord(event_out, stream_out);
-                cudaStreamWaitEvent(0, event_out, 0); 
-                cudaStreamWaitEvent(0, event_in, 0);
-                // cudaStreamSynchronize(stream_out);
-                // cudaStreamSynchronize(stream_in);
-
-                // cudaMemset(p.visit, 0, sizeof(int) * p.num_vtx);
-
-                // cudaStreamSynchronize(stream_s);
-                // cudaStreamSynchronize(stream_m);
-                // cudaStreamSynchronize(stream_l);
+                cudaMemset(p.visit, 0, sizeof(int) * p.num_vtx); 
 
 
-                // update_change_status_buffer<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, p.out_adj, p.out_offset, change, core0, k, global_done);
-                update_change_status_out_thread<<<BLK_NUMS, BLK_DIM, 0, stream_out>>>(out_buffer_s, count_out_s, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, core0, k, global_done, p.visit);
-                update_change_status_out_warp<<<BLK_NUMS, BLK_DIM, 0, stream_out>>>(out_buffer_m, count_out_m, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, core0, k, global_done, p.visit);
-                update_change_status_out_block<<<BLK_NUMS, BLK_DIM, 0, stream_out>>>(out_buffer_l, count_out_l, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, core0, k, global_done, p.visit);
+                update_change_status_out_thread_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_s, count_out_s, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, core0, k, global_done, p.visit);
+                update_change_status_out_warp_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_m, count_out_m, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, core0, k, global_done, p.visit);
+                update_change_status_out_block_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_l, count_out_l, hindex_in, hindex_out, p.core, p.out_adj, p.out_offset, core0, k, global_done, p.visit);
 
-                update_change_status_in_thread<<<BLK_NUMS, BLK_DIM, 0, stream_in>>>(in_buffer_s, count_in_s, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, core0, k, global_done, p.visit);
-                update_change_status_in_warp<<<BLK_NUMS, BLK_DIM, 0, stream_in>>>(in_buffer_m, count_in_m, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, core0, k, global_done, p.visit);
-                update_change_status_in_block<<<BLK_NUMS, BLK_DIM, 0, stream_in>>>(in_buffer_l, count_in_l, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, core0, k, global_done, p.visit);
-                
-                cudaEventRecord(event_in, stream_in);
-                cudaEventRecord(event_out, stream_out);
-                cudaStreamWaitEvent(0, event_out, 0); 
-                cudaStreamWaitEvent(0, event_in, 0);
+                update_change_status_in_thread_one_stream<<<BLK_NUMS, BLK_DIM>>>(in_buffer_s, count_in_s, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, core0, k, global_done, p.visit);
+                update_change_status_in_warp_one_stream<<<BLK_NUMS, BLK_DIM>>>(in_buffer_m, count_in_m, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, core0, k, global_done, p.visit);
+                update_change_status_in_block_one_stream<<<BLK_NUMS, BLK_DIM>>>(in_buffer_l, count_in_l, hindex_in, hindex_out, p.core, p.in_adj, p.in_offset, core0, k, global_done, p.visit);
+         
 
-                // update_upper_by_visit_buffer<<<BLK_NUMS, BLK_DIM>>>(global_buffer, buf_count, hindex_in, hindex_out, p.core);
-                update_upper_by_out_buffer_s<<<BLK_NUMS, BLK_DIM>>>(out_buffer_s, count_out_s, hindex_in, hindex_out, p.core);
-                update_upper_by_out_buffer_m<<<BLK_NUMS, BLK_DIM>>>(out_buffer_m, count_out_m, hindex_in, hindex_out, p.core);
-                update_upper_by_out_buffer_l<<<BLK_NUMS, BLK_DIM>>>(out_buffer_l, count_out_l, hindex_in, hindex_out, p.core);
+                update_upper_by_out_buffer_s_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_s, count_out_s, hindex_in, hindex_out, p.core);
+                update_upper_by_out_buffer_m_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_m, count_out_m, hindex_in, hindex_out, p.core);
+                update_upper_by_out_buffer_l_one_stream<<<BLK_NUMS, BLK_DIM>>>(out_buffer_l, count_out_l, hindex_in, hindex_out, p.core);
           
-                // cudaStreamSynchronize(stream_s);
-                // cudaStreamSynchronize(stream_m);
-                // cudaStreamSynchronize(stream_l);
-
-                // cudaMemcpy(p.visit, change, sizeof(int)*p.num_vtx, cudaMemcpyDeviceToDevice);
+               
                 cudaMemcpy(&done, global_done, sizeof(int), cudaMemcpyDeviceToHost);
 
             }
@@ -1797,14 +1754,14 @@ void klist_balance_buffer_de(G_pointers &p){
             cudaMemset(count_in_m, 0, sizeof(int) * BLK_NUMS); 
             cudaMemset(count_in_l, 0, sizeof(int));
 
-            vertex_to_buffer_by_core0_buffer<<<BLK_NUMS, BLK_DIM>>>(k, core0, p.in_deg, in_buffer_s, in_buffer_m, in_buffer_l, count_in_s, count_in_m, count_in_l, global_buffer, buf_count);
-            hin_count_thread_buffer<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, in_buffer_s, count_in_s, p.core, core0, p.in_adj, p.in_offset, k);
-            hin_count_warp_buffer<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, in_buffer_m, count_in_m, p.core, core0, p.in_adj, p.in_offset, k);
-            hin_count_block_buffer<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, in_buffer_l, count_in_l, p.core, core0, p.in_adj, p.in_offset, k);
+            vertex_to_buffer_by_core0_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(k, core0, p.in_deg, in_buffer_s, in_buffer_m, in_buffer_l, count_in_s, count_in_m, count_in_l, global_buffer, buf_count);
+            hin_count_thread_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, in_buffer_s, count_in_s, p.core, core0, p.in_adj, p.in_offset, k);
+            hin_count_warp_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, in_buffer_m, count_in_m, p.core, core0, p.in_adj, p.in_offset, k);
+            hin_count_block_buffer_one_stream<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, in_buffer_l, count_in_l, p.core, core0, p.in_adj, p.in_offset, k);
 
             // check_innb_cpunt_balance_buffer<<<1024, 256>>>(p.in_count_num, p.core, core0, p.num_vtx, p.in_offset, p.in_adj, k);
             
-            reduceMinkernel_balance_buffer<<< (p.num_vtx+256-1)/256, 256>>>(p.in_count_num, d_min, p.num_vtx);
+            reduceMinkernel_balance_buffer_one_stream<<< (p.num_vtx+256-1)/256, 256>>>(p.in_count_num, d_min, p.num_vtx);
 
             cudaMemcpy(&h_min, d_min, sizeof(int), cudaMemcpyDeviceToHost);
             // cout << "k = " << k << ", h_min = " << h_min << endl;
@@ -1816,30 +1773,12 @@ void klist_balance_buffer_de(G_pointers &p){
             }
         }
         pos ++;
-        // if(k == 1151){
-        //     chkerr(cudaMemcpy(res[0], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
-        // }
         #ifdef write_to_host
         chkerr(cudaMemcpy(res[k], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
         #endif
 
     }
-
-    std::cout << "h_kstatus_v_len = " << h_kstatus_v.size() << std::endl;
-
-    // for(int i = 0; i < h_kstatus_v.size(); i ++){
-    //     cout << "h_kstatus_v = " << h_kstatus_v[i] << endl;
-    // }
     
-    // for(int k = 0; k <1; k ++){
-    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/hollywood-2011/1151-"+std::to_string(k)+"-gpu.txt");
-
-    //     for(int v = 0; v < p.num_vtx; v ++){
-    //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
-    //     }
-    // }
-
-
     #ifdef write_to_host
 
     for(int k = 0; k <h_kstatus_v_len; k ++){

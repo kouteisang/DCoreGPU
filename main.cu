@@ -7,6 +7,7 @@
 #include "./src/gpubaseline.cuh"
 #include "./src/klist_balance.cuh"
 #include "./src/klist_balance_buffer.cuh"
+#include "./src/klist_balance_buffer_one_stream.cuh"
 
 enum Algorithm{
     klist = 1,
@@ -16,7 +17,8 @@ enum Algorithm{
     klistanchorsequenceprune = 5,
     klist_balance = 6,
     klist_balance_buffer = 7,
-    gpubaseline = 8, 
+    klist_balance_buffer_one_stream = 8,
+    gpubaseline = 9, 
 };
 
 bool file_exists(const std::string& name) {
@@ -26,10 +28,11 @@ bool file_exists(const std::string& name) {
 
 int main(int argc, char* argv[]){
 
-    cudaSetDevice(0);
+    cudaSetDevice(1);
 
     string dataset = "em";
     int alg = 1; // klist, klist-prune
+    int order = 0; // 0: randoem, 1: sort by out-degree, 2: sort by in-degree
 
     for(int i = 1; i < argc; i ++){
         string arg = argv[i];
@@ -37,6 +40,8 @@ int main(int argc, char* argv[]){
             dataset = argv[++i];
         }else if(arg == "-a" && i+1 < argc){
             alg = std::stoi(argv[++i]);
+        }else if(arg == "-o" && i+1 < argc){
+            order = std::stoi(argv[++i]);
         }
     }
 
@@ -49,11 +54,11 @@ int main(int argc, char* argv[]){
 
     string file_path = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/";
 
-    std::string bin_file = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/" + dataset+  ".bin";
+    std::string bin_file = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/" + dataset+  "-" +std::to_string(order) + ".bin";
 
     Graph g = file_exists(bin_file) ?
           Graph(bin_file) :
-          Graph(file_path, dataset);
+          Graph(file_path, dataset, order);
 
     // Graph g = Graph(file_path, dataset);
     int num_vtx = g.get_num_vtx();
@@ -94,6 +99,10 @@ int main(int argc, char* argv[]){
         case Algorithm::klist_balance_buffer:
             cout << "Algorithm = klist balanced buffer" << endl;
             klist_balance_buffer_de(data_pointers);
+            break;
+        case Algorithm::klist_balance_buffer_one_stream:
+            cout << "Algorithm = klist balanced buffer one stream" << endl;
+            klist_balance_buffer_de_one_stream(data_pointers);
             break;
         case Algorithm::gpubaseline:
             cout << "Algorithm = gpubaseline" << endl;

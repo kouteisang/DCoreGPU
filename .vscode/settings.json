@@ -67,6 +67,8 @@
         "__split_buffer": "cpp",
         "__tree": "cpp",
         "filesystem": "cpp",
-        "__locale": "cpp"
+        "__locale": "cpp",
+        "queue": "cpp",
+        "stack": "cpp"
     }
 }

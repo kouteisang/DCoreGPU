@@ -271,6 +271,41 @@ __global__ void reduceMinkernel(int* in_count_num, int* d_min, int num_vtx){
     }
 }
 
+__device__ int warp_reduce_sum_naive(int val) {
+    for (int offset = 16; offset > 0; offset /= 2)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    return val;
+}
+
+__global__ void check_innb_count_balance_buffer(int* in_count_num, int* core, int* core0, int num_vtx, int* in_offset, int* in_adj, int k){
+    
+
+    int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
+    int lane_id = threadIdx.x % WARP_SIZE;
+    int warp_id = thread_id / WARP_SIZE;
+    int total_warps = (gridDim.x * blockDim.x) / WARP_SIZE;
+
+    for (int v = warp_id; v < num_vtx; v += total_warps) {
+            if (core0[v] < k) {
+                if (lane_id == 0) in_count_num[v] = INT_MAX;
+                continue;
+            }
+
+            int core_v = core[v];
+            int start = in_offset[v];
+            int end = in_offset[v+1];
+            int cnt = 0;
+            for (int i = start + lane_id; i < end; i += WARP_SIZE) {
+                int u = in_adj[i];
+                cnt += (core[u] >= core_v && core0[u] >= k);
+            }
+
+            int warp_total = warp_reduce_sum_naive(cnt);
+            if (lane_id == 0) in_count_num[v] = warp_total;
+        }
+
+} 
+
 
 // __global__ void klistprune_scan_by_core0(int* core0, int* visit, int num_vtx, int* global_buffer, int* buf_count, int* core, int k){
 
@@ -410,11 +445,25 @@ void klistprune_de(G_pointers &p){
     // for(int v = 0; v < p.num_vtx; v ++){
     //     wr << tcore0[v] << std::endl;
     // }
+
+    cout << "level = " << level-1 << endl;
+
+
+    std::ifstream file("/home/cheng/DCoreGPU/dataset/hollywood-2011/vtx2id.txt");  // 打开文件
+    unordered_map<int, int> id2vtx;
+    int vtx, id;
+    // 逐行读取数据
+    // while (file >> vtx >> id) {
+    //     id2vtx[id] = vtx;
+    // }
+
+    // int** res = new int*[level];
+    // for(int l = 0; l < level; l ++){
+    //     res[l] = new int[p.num_vtx];
+    // }
     
 
 
-
-    cout << "level = " << level-1 << endl;
 
     bool* kstatus;
     chkerr(cudaMalloc(&kstatus, level * sizeof(bool)));
@@ -466,6 +515,7 @@ void klistprune_de(G_pointers &p){
         if(pos + 1 < h_kstatus_v_len && h_kstatus_v[pos+1] != k+1){
             cudaMemcpy(d_min, &max_val, sizeof(int), cudaMemcpyHostToDevice);
             check_innb_count<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, p.core, core0, p.num_vtx, p.in_offset, p.in_adj, k);
+            // check_innb_count_balance_buffer<<<1024, 256>>>(p.in_count_num, p.core, core0, p.num_vtx, p.in_offset, p.in_adj, k);
             reduceMinkernel<<< (p.num_vtx+256-1)/256, 256>>>(p.in_count_num, d_min, p.num_vtx);
             cudaMemcpy(&h_min, d_min, sizeof(int), cudaMemcpyDeviceToHost);
             // cout << "k = " << k << ", h_min = " << h_min << endl;
@@ -487,6 +537,9 @@ void klistprune_de(G_pointers &p){
         //     cout << "I am here 313" << endl; 
         // }
         pos ++;
+        // if(k == 1151){
+        //     chkerr(cudaMemcpy(res[0], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
+        // }
     }
 
     // Save to local the k_status
@@ -496,12 +549,12 @@ void klistprune_de(G_pointers &p){
     // }
 
     // for(int k = 0; k < level; k ++){
-    //     std::ofstream wr("/home/cheng/DCoreGPU/dataset/hollywood-2009-20/hollywood-2009-20-k-"+std::to_string(k)+"-gpu.txt");
+        // std::ofstream wr("/home/cheng/DCoreGPU/dataset/hollywood-2011/hollywood-2011-k-1151-gpu.txt");
 
-    //     for(int v = 0; v < p.num_vtx; v ++){
-    //         wr << id2vtx[v] << " " << res[k][v] << std::endl;
-    //     }
+        // for(int v = 0; v < p.num_vtx; v ++){
+        //     wr << id2vtx[v] << " " << res[0][v] << std::endl;
+        // }
     // }
-    // cout << h_kstatus_v.size() << endl;
+    std::cout << "h_kstatus_v_len = " << h_kstatus_v.size() << std::endl;
     cout << "iteration = " << iteration << endl;
 }

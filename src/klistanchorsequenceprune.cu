@@ -974,6 +974,8 @@ void klistanchorsequenceprune_de(G_pointers &p){
     cout << "iterationh = " << iterationh << endl;
     cout << "iterationk = " << iterationk << endl;
     cout << "total iteration = " << iterationk + iterationh << endl;
+    std::cout << "h_kstatus_v_len = " << h_kstatus_v.size() << std::endl;
+    
 
 
 }

@@ -22,6 +22,7 @@ private:
 public:
     Graph(/* args */);
     Graph(string file, string dataset);
+    Graph(string file, string dataset, int order);
     Graph(const std::string& bin_file);
 
     ~Graph();
