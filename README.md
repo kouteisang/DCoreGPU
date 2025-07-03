@@ -77,6 +77,21 @@ Ensure that the name of the dataset folder matches the name of the .txt file.
 
 e.g. dataset/em/em.txt
 
+| Dataset  |  Source |  
+|---|---|
+| (AM)Amazon  |  https://snap.stanford.edu/data/index.html |   
+| (EM)Email-EuAll  |  https://snap.stanford.edu/data/index.html |   
+| (PO)Pokec  |  https://snap.stanford.edu/data/index.html |   
+| (SD)Slashdot  |  https://snap.stanford.edu/data/index.html |   
+| (EN)Enwiki-2024  |  https://law.di.unimi.it/index.php |   
+| (LJ)Live Journal  |  https://snap.stanford.edu/data/index.html |   
+| (UK)UK-2002   |  https://law.di.unimi.it/index.php |   
+| (H11)Hollywood-2011  | https://law.di.unimi.it/index.php |   
+| (H09)Hollywood-2009  | https://law.di.unimi.it/index.php |   
+| (IT)IT-2004  |  https://law.di.unimi.it/index.php |   
+| (IC)IndoChina-2004  |  https://law.di.unimi.it/index.php |   
+| (EU)EU-2015-TPD  |  https://law.di.unimi.it/index.php |   
+
 
 ## profile
 
