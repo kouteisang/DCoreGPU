@@ -8,6 +8,14 @@
 #include "./src/klist_balance.cuh"
 #include "./src/klist_balance_buffer.cuh"
 #include "./src/klist_balance_buffer_one_stream.cuh"
+#include "./src/klist_thread.cuh"
+#include "./src/klist_block.cuh"
+#include "./src/klist_balance_buffer_atomic.cuh"
+#include "./src/observation1.cuh"
+#include "./src/observation2.cuh"
+#include "./src/observation3.cuh"
+#include "./src/ghthread.cuh"
+#include "./src/ghblock.cuh"
 
 enum Algorithm{
     klist = 1,
@@ -19,6 +27,14 @@ enum Algorithm{
     klist_balance_buffer = 7,
     klist_balance_buffer_one_stream = 8,
     gpubaseline = 9, 
+    klistthread = 10,
+    klistblock = 11,
+    klist_balance_buffer_with_atomic = 12,
+    ablation_observe_1 = 13,
+    ablation_observe_2 = 14,
+    ablation_observe_3 = 15,
+    gh_thread = 16,
+    gh_block = 17,
 };
 
 bool file_exists(const std::string& name) {
@@ -108,6 +124,39 @@ int main(int argc, char* argv[]){
             cout << "Algorithm = gpubaseline" << endl;
             gpu_baseline_de(data_pointers);
             break;
+        case Algorithm::klistthread:
+            cout << "Algorithm = klistthread" << endl;
+            // klistprune_de(data_pointers);
+            klist_thread(data_pointers);
+            break;
+        case Algorithm::klistblock:
+            cout << "Algorithm = klistblock" << endl;
+            klist_block(data_pointers);
+            break;
+        case Algorithm::klist_balance_buffer_with_atomic:
+            cout << "Algorithm = klist balance buffer with atomic" << endl;
+            klist_balance_buffer_atomic_de(data_pointers);
+            break;
+        case Algorithm::ablation_observe_1:
+            cout << "Algorithm = ablation_observe_1" << endl;
+            klist_observation1(data_pointers);
+            break;
+        case Algorithm::ablation_observe_2:
+            cout << "Algorithm = ablation_observe_2" << endl;
+            klist_observation2(data_pointers);
+            break;
+        case Algorithm::ablation_observe_3:
+            cout << "Algorithm = ablation_observe_3" << endl;
+            klist_observation3(data_pointers);
+            break;
+        case Algorithm::gh_thread:
+            cout << "Algorithm = gh_thread" << endl;
+            ghthread_decomposition(data_pointers);
+            break;
+        case Algorithm::gh_block:
+            cout << "Algorithm = gh_block" << endl;
+            ghblock_decomposition(data_pointers);
+            break;
         default:
             cout << "Algorithm = klist" << endl;
             klist_de(data_pointers);
@@ -118,7 +167,7 @@ int main(int argc, char* argv[]){
     cudaEventSynchronize(stop);
     float gpu_time = 0;
     cudaEventElapsedTime(&gpu_time, start, stop);
-    std::cout << "GPU time = " << gpu_time << " ms" << std::endl;
+    std::cout << "GPU time = " << gpu_time*1.0/1000 << " second" << std::endl;
 
     cudaEventDestroy(start);
     cudaEventDestroy(stop);

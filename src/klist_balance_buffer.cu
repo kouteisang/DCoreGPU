@@ -301,14 +301,15 @@ __global__ void vertex_to_buffer_by_out_degree_buffer(int* visit, int num_vtx, i
     for(int vid = threadIdx.x; vid < end; vid += BLK_DIM){
         int v = t_global_buffer[vid];
         int deg = out_degree[v];
+        if(visit[v] != 1) continue;
 
-        if(deg <= 16 && visit[v] == 1){
+        if(deg <= 16){// && visit[v] == 1){
             int pos = atomicAdd(&sh_buf_count_s, 1);
             t_out_buffer_s[pos] = v;
-        }else if(deg <= 1024 && visit[v] == 1){
+        }else if(deg <= 1024){// && visit[v] == 1){
             int pos = atomicAdd(&sh_buf_count_m, 1);
             t_out_buffer_m[pos] = v;
-        }else if(deg > 1024 && visit[v] == 1){
+        }else if(deg > 1024){// && visit[v] == 1){
             int pos = atomicAdd(count_out_l, 1);
             out_buffer_l[pos] = v;
         }
@@ -353,14 +354,15 @@ __global__ void vertex_to_buffer_by_in_degree_buffer(int* visit, int num_vtx, in
     for(int vid = threadIdx.x; vid < end; vid += BLK_DIM){
         int v = t_global_buffer[vid];
         int deg = in_degree[v];
+        if(visit[v] != 1) continue;
 
-        if(deg <= 16 && visit[v] == 1){
+        if(deg <= 16){// && visit[v] == 1){
             int pos = atomicAdd(&sh_in_count_s, 1);
             t_in_buffer_s[pos] = v;
-        }else if(deg <= 1024  && visit[v] == 1){
+        }else if(deg <= 1024){// && visit[v] == 1){
             int pos = atomicAdd(&sh_in_count_m, 1);
             t_in_buffer_m[pos] = v;
-        }else if(deg > 1024 && visit[v] == 1){
+        }else if(deg > 1024){// && visit[v] == 1){
             int pos = atomicAdd(count_in_l, 1);
             in_buffer_l[pos] = v;
         }
@@ -1056,7 +1058,6 @@ __global__ void reduceMinkernel_balance_buffer(int* in_count_num, int* d_min, in
 }
 
 
-
 __global__ void update_change_status_out_thread(int* out_buffer_s, int* count_out_s, int* hindex_in, int* hindex_out, int* core, int* out_adj, int* out_offset, int* core0, int k, int * global_done, int* visit){
     
     __shared__ int end;
@@ -1597,7 +1598,7 @@ void klist_balance_buffer_de(G_pointers &p){
         }
     }
 
-    cout << "before  h_kstatus_v len = " << h_kstatus_v.size() << endl;
+    // cout << "before  h_kstatus_v len = " << h_kstatus_v.size() << endl;
 
 
     cudaMemset(global_count, 0, sizeof(int));
@@ -1692,6 +1693,7 @@ void klist_balance_buffer_de(G_pointers &p){
     cudaEvent_t event_in, event_out;
     cudaEventCreate(&event_in);
     cudaEventCreate(&event_out);
+    // int iteration_inner = 0;
     
     while(pos < h_kstatus_v_len){
         
@@ -1699,7 +1701,7 @@ void klist_balance_buffer_de(G_pointers &p){
         int k = h_kstatus_v[pos];
         cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
         cudaMemset(p.in_count_num, -1, p.num_vtx * sizeof(int));
-        if(pos == 0){
+        if(pos <= 0){
             cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
             count = 0;
             l = 0;
@@ -1709,6 +1711,7 @@ void klist_balance_buffer_de(G_pointers &p){
                 chkerr(cudaMemcpy(&count, global_count, sizeof(int), cudaMemcpyDeviceToHost));        //     l ++;
                 l ++;
                 iterationk ++;
+                // iteration_inner ++;
             }
         }else if(pos > 0){
             int done = 1;
@@ -1716,7 +1719,7 @@ void klist_balance_buffer_de(G_pointers &p){
             cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS); // buf count  checked
             vertex_to_buffer_buffer<<<BLK_NUMS, BLK_DIM>>>(p.num_vtx, global_buffer, buf_count, p.visit);
             while(done){
-                
+                // iteration_inner ++;
                 iterationh ++;
                 // printf("iteration h = %d\n", iterationh);
                 cudaMemsetAsync(global_done, 0, sizeof(int), stream_out);  
@@ -1788,7 +1791,10 @@ void klist_balance_buffer_de(G_pointers &p){
 
             }
         }
-        
+
+        // std::cout << "iteration_inner = " << iteration_inner << std::endl;
+        // iteration_inner = 0;
+
         if(pos + 1 < h_kstatus_v_len && h_kstatus_v[pos+1] != k+1){
             cudaMemcpy(d_min, &max_val, sizeof(int), cudaMemcpyHostToDevice);
             // b_check_innb_count_ps<<<BLK_NUMS, BLK_DIM>>>(p.in_count_num, p.core, core0, p.num_vtx, p.in_offset, p.in_adj, k);
