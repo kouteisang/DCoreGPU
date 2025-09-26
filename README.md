@@ -35,11 +35,12 @@ After compile successfully, replace {dataset} with the dataset name and {algorit
 algorithm id:
 
 - GPeel: 2
+- Geld: 7
 - obs1: 13
 - obs2: 14
 - obs3: 15
 - Geld-Thread: 16
-- GHI-Warp: 5
+- Geld-Warp: 5
 - Geld-Block: 17
 - Geld-Block*: 18
 
