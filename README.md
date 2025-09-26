@@ -1,5 +1,3 @@
-# Towards Efficient D-Core Decomposition on GPU via Load-Balanced Parallelism (VLDB submission)
-
 ## Configuration
 
 We implement our GPU algorithms in C++ and run the experiments
@@ -31,15 +29,21 @@ Then it will gereneate a execuable binary file named 'main'.
 After compile successfully, replace {dataset} with the dataset name and {algorithm id} with algorithm id.
 
 ```
-./main -d {dataset} -a {algorithm id}
+./main -d {dataset} -a {algorithm id} -t {warp start}
 ```
 
 algorithm id:
 
 - GPeel: 2
+- obs1: 13
+- obs2: 14
+- obs3: 15
+- Geld-Thread: 16
 - GHI-Warp: 5
-- GHI-LB: 7
-- GTrim: 9
+- Geld-Block: 17
+- Geld-Block*: 18
+
+
 
 ## Example:
 
@@ -49,22 +53,11 @@ Run GPeel on EM dataset
 ./main -d em -a 2
 ```
 
-Run GHI-Warp on EM dataset
+
+Run Geld on EM dataset with warp start 0
 
 ```
-./main -d em -a 5
-```
-
-Run GHI-LB on EM dataset
-
-```
-./main -d em -a 7
-```
-
-Run GTrim on EM dataset
-
-```
-./main -d em -a 9
+./main -d em -a 7 -t 0
 ```
 
 

@@ -16,6 +16,7 @@
 #include "./src/observation3.cuh"
 #include "./src/ghthread.cuh"
 #include "./src/ghblock.cuh"
+#include "./src/ghmultiblockfrontier.cuh"
 
 enum Algorithm{
     klist = 1,
@@ -35,6 +36,7 @@ enum Algorithm{
     ablation_observe_3 = 15,
     gh_thread = 16,
     gh_block = 17,
+    gh_multiblockfrontier = 18,
 };
 
 bool file_exists(const std::string& name) {
@@ -47,6 +49,7 @@ int main(int argc, char* argv[]){
     cudaSetDevice(1);
 
     string dataset = "em";
+    int t = 0;
     int alg = 1; // klist, klist-prune
     int order = 0; // 0: randoem, 1: sort by out-degree, 2: sort by in-degree
 
@@ -58,6 +61,8 @@ int main(int argc, char* argv[]){
             alg = std::stoi(argv[++i]);
         }else if(arg == "-o" && i+1 < argc){
             order = std::stoi(argv[++i]);
+        }else if(arg == "-t" && i+1 < argc){
+            t = std::stoi(argv[++i]);
         }
     }
 
@@ -114,7 +119,7 @@ int main(int argc, char* argv[]){
             break;
         case Algorithm::klist_balance_buffer:
             cout << "Algorithm = klist balanced buffer" << endl;
-            klist_balance_buffer_de(data_pointers);
+            klist_balance_buffer_de(data_pointers, t);
             break;
         case Algorithm::klist_balance_buffer_one_stream:
             cout << "Algorithm = klist balanced buffer one stream" << endl;
@@ -156,6 +161,10 @@ int main(int argc, char* argv[]){
         case Algorithm::gh_block:
             cout << "Algorithm = gh_block" << endl;
             ghblock_decomposition(data_pointers);
+            break;
+        case Algorithm::gh_multiblockfrontier:
+            cout << "Algorithm = gh_multiblockfrontier" << endl;
+            ghmultiblockfrontier_decomposition(data_pointers, t);
             break;
         default:
             cout << "Algorithm = klist" << endl;

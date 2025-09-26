@@ -523,13 +523,13 @@ void klistprune_de(G_pointers &p){
             // cout << "k = " << k << ", h_min = " << h_min << endl;
             // printf("haha I am here h_min true = %d\n", h_min);
             if(h_min != INT_MAX && pos+1 < h_kstatus_v_len && h_min+1 < h_kstatus_v[pos+1]){
-                printf("haha I am here h_min true = %d\n", h_min);
+                // printf("haha I am here h_min true = %d\n", h_min);
                 h_kstatus_v.insert(h_kstatus_v.begin() + pos + 1, h_min+1);
                 h_kstatus_v_len ++;
             }
         }
         pos ++;
-        printf("iteration_inner = %d\n", iteration_inner);
+        // printf("iteration_inner = %d\n", iteration_inner);
         // if(k == 72){
         //     chkerr(cudaMemcpy(res[0], p.core, p.num_vtx * sizeof(int), cudaMemcpyDeviceToHost));
         // }

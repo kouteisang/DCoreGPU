@@ -1550,7 +1550,7 @@ __global__ void vertex_to_buffer_by_core0_buffer(int k, int* core0, int* in_degr
 }
 
 
-void klist_balance_buffer_de(G_pointers &p){
+void klist_balance_buffer_de(G_pointers &p, int t){
 
 
     int iterationh = 0;
@@ -1701,7 +1701,15 @@ void klist_balance_buffer_de(G_pointers &p){
         int k = h_kstatus_v[pos];
         cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
         cudaMemset(p.in_count_num, -1, p.num_vtx * sizeof(int));
-        if(pos <= 0){
+        if(pos <= t){
+
+            cudaMemset(p.in_count_num, -1, p.num_vtx * sizeof(int));
+            cudaMemset(p.core, -1, p.num_vtx * sizeof(int));
+            chkerr(cudaMemcpy(p.t_in_deg, p.in_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+            chkerr(cudaMemcpy(p.t_out_deg, p.out_deg, p.num_vtx * sizeof(int), cudaMemcpyDeviceToDevice));
+            cudaMemset(p.visit, 0, p.num_vtx * sizeof(int)); // flag = false means has not visited
+            cudaMemset(global_count, 0, sizeof(int));
+            count = 0;
             cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS);
             count = 0;
             l = 0;
@@ -1713,7 +1721,7 @@ void klist_balance_buffer_de(G_pointers &p){
                 iterationk ++;
                 // iteration_inner ++;
             }
-        }else if(pos > 0){
+        }else if(pos > t){
             int done = 1;
             update_visit_by_core0_balance_buffer<<<BLK_NUMS, BLK_DIM>>>(core0, p.visit, p.num_vtx, k, p.core, p.in_count_num); // 这个在while循环外面
             cudaMemset(buf_count, 0, sizeof(int) * BLK_NUMS); // buf count  checked
