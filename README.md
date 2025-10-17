@@ -43,6 +43,7 @@ algorithm id:
 - Geld-Warp: 5
 - Geld-Block: 17
 - Geld-Block*: 18
+- GHindex: 19
 
 
 
@@ -55,10 +56,10 @@ Run GPeel on EM dataset
 ```
 
 
-Run Geld on EM dataset with warp start 0
+Run Geld on EM dataset
 
 ```
-./main -d em -a 7 -t 0
+./main -d em -a 7
 ```
 
 
