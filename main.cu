@@ -17,6 +17,7 @@
 #include "./src/ghthread.cuh"
 #include "./src/ghblock.cuh"
 #include "./src/ghmultiblockfrontier.cuh"
+#include "./src/hindex_gpu_baseline.cuh"
 
 enum Algorithm{
     klist = 1,
@@ -37,6 +38,7 @@ enum Algorithm{
     gh_thread = 16,
     gh_block = 17,
     gh_multiblockfrontier = 18,
+    hindex_gpu_baseline = 19,
 };
 
 bool file_exists(const std::string& name) {
@@ -73,9 +75,11 @@ int main(int argc, char* argv[]){
     cudaEventCreate(&stop);  // Calculate time
 
 
-    string file_path = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/";
+    string file_path = "DCoreGPU/dataset/"+ dataset + "/";
 
-    std::string bin_file = "/home/cheng/DCoreGPU/dataset/"+ dataset + "/" + dataset+  "-" +std::to_string(order) + ".bin";
+    std::string bin_file = "DCoreGPU/dataset/"+ dataset + "/" + dataset+  "-" +std::to_string(order) + ".bin";
+    // std::string bin_file = "DCoreGPU/dataset/"+ dataset + "/" + dataset + ".bin";
+
 
     Graph g = file_exists(bin_file) ?
           Graph(bin_file) :
@@ -165,6 +169,10 @@ int main(int argc, char* argv[]){
         case Algorithm::gh_multiblockfrontier:
             cout << "Algorithm = gh_multiblockfrontier" << endl;
             ghmultiblockfrontier_decomposition(data_pointers, t);
+            break;
+        case Algorithm::hindex_gpu_baseline:
+            cout << "Algorithm = hindex GPU baseline" << endl;
+            hindex_baseline(data_pointers, g);
             break;
         default:
             cout << "Algorithm = klist" << endl;

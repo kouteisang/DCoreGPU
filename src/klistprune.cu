@@ -448,18 +448,18 @@ void klistprune_de(G_pointers &p){
     // cout << "level = " << level-1 << endl;
 
 
-    // std::ifstream file("/home/cheng/DCoreGPU/dataset/enwiki-2024/vtx2id.txt");  // 打开文件
-    // unordered_map<int, int> id2vtx;
-    // int vtx, id;
-    // // 逐行读取数据
-    // while (file >> vtx >> id) {
-    //     id2vtx[id] = vtx;
-    // }
+    std::ifstream file("/home/cheng/DCoreGPU/dataset/enwiki-2024/vtx2id.txt");  // 打开文件
+    unordered_map<int, int> id2vtx;
+    int vtx, id;
+    // 逐行读取数据
+    while (file >> vtx >> id) {
+        id2vtx[id] = vtx;
+    }
 
-    // int** res = new int*[level];
-    // for(int l = 0; l < level; l ++){
-    //     res[l] = new int[p.num_vtx];
-    // }
+    int** res = new int*[level];
+    for(int l = 0; l < level; l ++){
+        res[l] = new int[p.num_vtx];
+    }
 
 
     bool* kstatus;

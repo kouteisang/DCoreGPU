@@ -30,8 +30,8 @@ typedef long long ll;
 
 #define BLK_NUMS 256
 #define BLK_DIM 1024
-#define BUFFER_SIZE 1000000
-// #define BUFFER_SIZE 30000
+// #define BUFFER_SIZE 1000000
+#define BUFFER_SIZE 2000
 #define WARP_SIZE 32
 
 
